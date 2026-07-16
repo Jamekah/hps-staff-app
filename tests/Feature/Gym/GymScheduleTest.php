@@ -82,6 +82,46 @@ class GymScheduleTest extends TestCase
             ->assertHasErrors('end_time');
     }
 
+    public function test_changing_start_date_pulls_an_earlier_end_date_along(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $component = Livewire::actingAs($admin)
+            ->test(GymSchedulePage::class)
+            ->call('openCreate')
+            ->set('end_date', '2026-08-05')
+            ->set('start_date', '2026-08-10'); // Start moved past the end.
+
+        $this->assertSame('2026-08-10', $component->get('end_date'));
+
+        // A still-valid later end date is left alone.
+        $component
+            ->set('end_date', '2026-08-20')
+            ->set('start_date', '2026-08-12');
+
+        $this->assertSame('2026-08-20', $component->get('end_date'));
+    }
+
+    public function test_changing_start_time_pulls_an_earlier_end_time_along(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $component = Livewire::actingAs($admin)
+            ->test(GymSchedulePage::class)
+            ->call('openCreate')
+            ->set('end_time', '09:00')
+            ->set('start_time', '10:00'); // Start moved past the end.
+
+        $this->assertSame('11:00', $component->get('end_time'));
+
+        // A still-valid later end time is left alone.
+        $component
+            ->set('end_time', '15:00')
+            ->set('start_time', '12:00');
+
+        $this->assertSame('15:00', $component->get('end_time'));
+    }
+
     public function test_weekly_recurrence_requires_at_least_one_weekday(): void
     {
         $admin = User::factory()->admin()->create();

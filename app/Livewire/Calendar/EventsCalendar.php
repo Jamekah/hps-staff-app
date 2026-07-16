@@ -33,6 +33,8 @@ class EventsCalendar extends Component
 
     public string $details = '';
 
+    public string $location = '';
+
     public string $starts_at = '';
 
     public string $ends_at = '';
@@ -76,11 +78,32 @@ class EventsCalendar extends Component
         $this->selectedEventId = null;
     }
 
+    /**
+     * Keep the end datetime from landing before the start: whenever the start
+     * changes, an empty or now-invalid end is moved to the same day, two
+     * hours after the new start.
+     */
+    public function updatedStartsAt(): void
+    {
+        try {
+            $start = Carbon::parse($this->starts_at);
+        } catch (\Throwable) {
+            return;
+        }
+
+        $endIsInvalid = ! $this->ends_at
+            || Carbon::parse($this->ends_at)->lte($start);
+
+        if ($endIsInvalid) {
+            $this->ends_at = $start->copy()->addHours(2)->format('Y-m-d\TH:i');
+        }
+    }
+
     public function openCreate(?string $date = null): void
     {
         $this->authorize('create', Event::class);
 
-        $this->reset(['editingId', 'name', 'details', 'staffIds']);
+        $this->reset(['editingId', 'name', 'details', 'location', 'staffIds']);
         $this->type = 'internal';
         $start = $date ? Carbon::parse($date)->setTime(9, 0) : now()->addDay()->setTime(9, 0);
         $this->starts_at = $start->format('Y-m-d\TH:i');
@@ -99,6 +122,7 @@ class EventsCalendar extends Component
         $this->name = $event->name;
         $this->type = $event->type->value;
         $this->details = $event->details ?? '';
+        $this->location = $event->location ?? '';
         $this->starts_at = $event->starts_at->format('Y-m-d\TH:i');
         $this->ends_at = $event->ends_at->format('Y-m-d\TH:i');
         $this->staffIds = $event->staff->pluck('id')->map(fn ($id) => (string) $id)->all();
@@ -113,6 +137,7 @@ class EventsCalendar extends Component
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::in(EventType::values())],
             'details' => ['nullable', 'string', 'max:5000'],
+            'location' => ['nullable', 'string', 'max:255'],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date', 'after:starts_at'],
             'staffIds' => ['array'],
@@ -123,6 +148,7 @@ class EventsCalendar extends Component
             'name' => $validated['name'],
             'type' => $validated['type'],
             'details' => $validated['details'] ?: null,
+            'location' => $validated['location'] ?: null,
             'starts_at' => $validated['starts_at'],
             'ends_at' => $validated['ends_at'],
         ];

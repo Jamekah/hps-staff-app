@@ -165,7 +165,7 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <x-input-label for="gs-start_date" value="Start date" />
-                            <x-text-input wire:model="start_date" id="gs-start_date" type="date" class="mt-1 block w-full" />
+                            <x-text-input wire:model.live="start_date" id="gs-start_date" type="date" class="mt-1 block w-full" />
                             <x-input-error :messages="$errors->get('start_date')" class="mt-1" />
                         </div>
                         <div>
@@ -175,7 +175,7 @@
                         </div>
                         <div>
                             <x-input-label for="gs-start_time" value="Start time" />
-                            <x-text-input wire:model="start_time" id="gs-start_time" type="time" class="mt-1 block w-full" />
+                            <x-text-input wire:model.live="start_time" id="gs-start_time" type="time" class="mt-1 block w-full" />
                             <x-input-error :messages="$errors->get('start_time')" class="mt-1" />
                         </div>
                         <div>

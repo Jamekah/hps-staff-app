@@ -140,6 +140,12 @@
                         <span class="font-semibold">Ends:</span> {{ $selectedEvent->ends_at->format('D j M Y, g:ia') }}
                     </p>
 
+                    @if ($selectedEvent->location)
+                        <p>
+                            <span class="font-semibold">Location:</span> {{ $selectedEvent->location }}
+                        </p>
+                    @endif
+
                     @if ($selectedEvent->details)
                         <p class="whitespace-pre-line">{{ $selectedEvent->details }}</p>
                     @endif
@@ -208,7 +214,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <x-input-label for="starts_at" value="Starts" />
-                            <x-text-input wire:model="starts_at" id="starts_at" type="datetime-local" class="mt-1 block w-full" />
+                            <x-text-input wire:model.live="starts_at" id="starts_at" type="datetime-local" class="mt-1 block w-full" />
                             <x-input-error :messages="$errors->get('starts_at')" class="mt-1" />
                         </div>
                         <div>
@@ -216,6 +222,12 @@
                             <x-text-input wire:model="ends_at" id="ends_at" type="datetime-local" class="mt-1 block w-full" />
                             <x-input-error :messages="$errors->get('ends_at')" class="mt-1" />
                         </div>
+                    </div>
+
+                    <div>
+                        <x-input-label for="event-location" value="Location" />
+                        <x-text-input wire:model="location" id="event-location" type="text" class="mt-1 block w-full" placeholder="e.g. HPS Main Hall, Taurama Aquatic Centre" />
+                        <x-input-error :messages="$errors->get('location')" class="mt-1" />
                     </div>
 
                     <div>

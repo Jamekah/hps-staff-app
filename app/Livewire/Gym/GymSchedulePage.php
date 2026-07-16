@@ -71,6 +71,36 @@ class GymSchedulePage extends Component
         $this->date = now()->toDateString();
     }
 
+    /**
+     * Keep the series end date from landing before its start date: when the
+     * start moves past the end (or the end is empty), pull the end up to match.
+     */
+    public function updatedStartDate(): void
+    {
+        if ($this->start_date && (! $this->end_date || $this->end_date < $this->start_date)) {
+            $this->end_date = $this->start_date;
+        }
+    }
+
+    /**
+     * Same guard for times: an end at or before the new start moves to one
+     * hour after it (capped at 23:59 — sessions don't cross midnight).
+     */
+    public function updatedStartTime(): void
+    {
+        if (! $this->start_time) {
+            return;
+        }
+
+        if (! $this->end_time || $this->end_time <= $this->start_time) {
+            $end = Carbon::createFromFormat('H:i', $this->start_time)->addHour();
+
+            $this->end_time = $end->format('H:i') > $this->start_time
+                ? $end->format('H:i')
+                : '23:59';
+        }
+    }
+
     public function openCreate(): void
     {
         $this->authorize('create', GymSchedule::class);

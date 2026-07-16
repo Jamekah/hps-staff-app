@@ -64,7 +64,10 @@ return [
     */
 
     'temporary_file_upload' => [
-        'disk' => null,        // Example: 'local', 's3'              | Default: 'default'
+        // Temp uploads stay on the app server (final files are copied to the
+        // default disk, e.g. S3, on save). Direct-to-S3 temp uploads need
+        // browser CORS + signed PUTs — needless fragility at this scale.
+        'disk' => 'local',
         'rules' => ['required', 'file', 'max:20480'], // 20MB — matches the shared-folder upload limit.
         'directory' => null,   // Example: 'tmp'                      | Default: 'livewire-tmp'
         'middleware' => null,  // Example: 'throttle:5,1'             | Default: 'throttle:60,1'

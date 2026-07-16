@@ -55,6 +55,7 @@ class EventsCalendarTest extends TestCase
             ->set('name', 'Team Workshop')
             ->set('type', 'internal')
             ->set('details', 'Quarterly planning session.')
+            ->set('location', 'HPS Main Hall')
             ->set('starts_at', '2026-08-10T09:00')
             ->set('ends_at', '2026-08-10T12:00')
             ->set('staffIds', $staff->pluck('id')->map(fn ($id) => (string) $id)->all())
@@ -65,6 +66,7 @@ class EventsCalendarTest extends TestCase
 
         $this->assertNotNull($event);
         $this->assertSame(EventType::Internal, $event->type);
+        $this->assertSame('HPS Main Hall', $event->location);
         $this->assertEqualsCanonicalizing(
             $staff->pluck('id')->all(),
             $event->staff->pluck('id')->all()
@@ -85,6 +87,33 @@ class EventsCalendarTest extends TestCase
             ->set('staffIds', [(string) $inactive->id])
             ->call('save')
             ->assertHasErrors('staffIds.0');
+    }
+
+    public function test_changing_start_pulls_an_earlier_end_along(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $component = Livewire::actingAs($admin)
+            ->test(EventsCalendar::class)
+            ->call('openCreate')
+            ->set('ends_at', '2026-08-10T11:00')
+            ->set('starts_at', '2026-08-12T09:00'); // Start moved past the end.
+
+        // End is pulled to the same day, two hours after the new start.
+        $this->assertSame('2026-08-12T11:00', $component->get('ends_at'));
+    }
+
+    public function test_changing_start_keeps_a_still_valid_end(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $component = Livewire::actingAs($admin)
+            ->test(EventsCalendar::class)
+            ->call('openCreate')
+            ->set('ends_at', '2026-08-20T17:00')
+            ->set('starts_at', '2026-08-12T09:00'); // End is still after the start.
+
+        $this->assertSame('2026-08-20T17:00', $component->get('ends_at'));
     }
 
     public function test_end_must_be_after_start(): void
