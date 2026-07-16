@@ -34,7 +34,7 @@ class InactiveUserTest extends TestCase
 
         $user->update(['is_active' => false]);
 
-        $response = $this->get('/dashboard');
+        $response = $this->get('/calendar');
 
         $response->assertRedirect(route('login'));
         $this->assertGuest();

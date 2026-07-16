@@ -51,6 +51,16 @@ class User extends Authenticatable
         ];
     }
 
+    public function events(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Event::class, 'event_staff');
+    }
+
+    public function gymSchedules(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(GymSchedule::class, 'gym_schedule_staff');
+    }
+
     public function isAdmin(): bool
     {
         return in_array($this->role, [Role::Admin, Role::SuperAdmin], true);
