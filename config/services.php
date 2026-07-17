@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // Firebase web app config for the messaging service worker (rendered at
+    // runtime — must come from config, not env(), so config caching works).
+    'firebase_web' => [
+        'apiKey' => env('VITE_FIREBASE_API_KEY'),
+        'projectId' => env('VITE_FIREBASE_PROJECT_ID'),
+        'messagingSenderId' => env('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+        'appId' => env('VITE_FIREBASE_APP_ID'),
+    ],
+
 ];

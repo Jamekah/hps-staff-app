@@ -3,7 +3,10 @@
 namespace App\Livewire\Announcements;
 
 use App\Models\Announcement;
+use App\Models\User;
+use App\Notifications\AnnouncementPublished;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -64,12 +67,20 @@ class AnnouncementsPage extends Component
     }
 
     /**
-     * Single code path for publishing — Phase 3 hooks the broadcast
-     * notification (push + in-app to all active users) in here.
+     * Single code path for publishing: creates the announcement and queues
+     * the broadcast (in-app + push) to all active users, in chunks so a
+     * large staff list never blocks the request.
      */
     protected function publish(array $attributes): Announcement
     {
-        return Announcement::create([...$attributes, 'created_by' => auth()->id()]);
+        $announcement = Announcement::create([...$attributes, 'created_by' => auth()->id()]);
+
+        User::where('is_active', true)
+            ->chunkById(100, function ($users) use ($announcement) {
+                Notification::send($users, new AnnouncementPublished($announcement));
+            });
+
+        return $announcement;
     }
 
     public function delete(int $announcementId): void

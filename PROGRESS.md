@@ -9,7 +9,7 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 |---|---|---|
 | 1. Foundation | Scaffold, auth + password reset, roles/policies, super admin seeder, user management | ✅ Complete & deployed to Laravel Cloud |
 | 2. Core pages | Events calendar, gym schedule, announcements, shared folder | ✅ Complete (needs deploy + bucket setup) |
-| 3. Notifications | In-app feed, FCM, device tokens, scheduled jobs | ⬜ Not started |
+| 3. Notifications | In-app feed, FCM, device tokens, scheduled jobs | ✅ Complete (needs queue worker + scheduler on Cloud) |
 | 4. Android | Capacitor wrapper, FCM native, APK build | ⬜ Not started |
 
 ---
@@ -120,10 +120,59 @@ Built per `../PHASE-2-BRIEF.md` (supersedes CLAUDE.md where they differ).
 - Attach an **object storage bucket** to the Laravel Cloud environment
   (Documents need S3; `FILESYSTEM_DISK=s3` + bucket vars are auto-injected).
 
-## Phase 3 — Notifications ⬜
-Planned: Laravel notifications (database + FCM channels), `device_tokens` table +
-registration, `events:notify-today` (daily 08:00 PGT), `gym:notify-upcoming`
-(every 5 min, 60-min pre-session reminders), announcement broadcast, bell/feed UI.
+## Phase 3 — Notifications ✅ (2026-07-17)
+
+Built per `../PHASE-3-BRIEF.md`. Firebase project provisioned by Jason;
+credentials live only in `.env` / Laravel Cloud secrets (verified: none in repo).
+
+### Built
+- **In-app feed**: bell in the nav (desktop + mobile) with unread badge,
+  60s Livewire polling, dropdown of recent 10, mark-all-read; `/notifications`
+  page with pagination, per-item + mark-all read; clicking a notification marks
+  it read and follows its link. Notifications are scoped per-user.
+- **FCM channel** (`App\Notifications\Channels\FcmChannel`): kreait/laravel-firebase
+  (6.x — 7.x needs PHP 8.3; local XAMPP is 8.2, sodium extension enabled for it),
+  multicast to all of a user's `device_tokens`, https click-through link via
+  WebPush config, **stale-token pruning** from unknown/invalid FCM responses,
+  lazily resolved so credential-less environments (tests) never boot Firebase.
+- **Device tokens**: `device_tokens` table; `POST/DELETE /api/device-tokens`
+  (session-authenticated). Upsert re-associates a token to the current user;
+  the frontend deletes the token on logout (keepalive fetch).
+- **Web push**: Firebase JS SDK in the Vite bundle; service worker served at
+  `/firebase-messaging-sw.js` **via a Laravel route** so its config comes from
+  env (config-cache safe, nothing hardcoded); dismissible "Enable notifications"
+  banner (no auto-prompt; hidden when denied/unsupported/dismissed); foreground
+  messages show an in-page toast; token re-registered on load when permission
+  is already granted.
+- **Triggers** (all queued via `ShouldQueue`, database queue):
+  - `events:notify-today` — daily 08:00 PGT, assigned active staff only.
+  - `gym:notify-upcoming` — every 5 min; half-open window `[now+60m, now+65m)`
+    over recurrence-expanded occurrences; `Cache::add` dedupe key per
+    occurrence/day (24h) against scheduler overlap.
+  - Announcement publish → all active users, chunked (100/batch), single
+    `publish()` code path; **editing does not re-broadcast**.
+
+### Verified
+- **98 tests passing (262 assertions)**: targeting (assigned-only, active-only,
+  all-active for announcements), window boundaries (62' caught, 30'/70' not),
+  weekly recurrence day matching, dedupe, token endpoint auth/upsert/delete,
+  feed counts + read state + cross-user isolation.
+- **Live end-to-end locally**: published an announcement as admin → queue worker
+  delivered in-app rows to all active users → staff bell showed 1 → dropdown
+  content correct → mark-all-read cleared it. `events:notify-today` run manually
+  notified the assigned staff only, with location in the message body.
+- **Real FCM round-trip**: notification sent through the actual FCM API with the
+  service-account credentials against a fake device token — FCM authenticated,
+  reported it invalid, and the channel **pruned it** (tokens 1 → 0, no errors).
+- Service worker route returns valid JS with the public web config only
+  (no private key material); repo scanned — no secrets staged.
+
+### To do on deploy (Laravel Cloud)
+- **Add a queue worker** to the production environment (notifications are queued;
+  without a worker nothing sends).
+- **Enable the scheduler** so `events:notify-today` / `gym:notify-upcoming` run.
+- Confirm the `FIREBASE_CREDENTIALS` + `VITE_FIREBASE_*` env vars are set
+  (VITE_ ones must be present at **build** time for the JS bundle).
 
 ## Phase 4 — Android ⬜
 Planned: Capacitor wrapper, FCM native setup, APK build.

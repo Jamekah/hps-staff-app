@@ -1,8 +1,14 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// All notification timing is Port Moresby wall-clock time (also the app
+// timezone) — set explicitly here so a future timezone change can't
+// silently shift these.
+Schedule::command('events:notify-today')
+    ->dailyAt('08:00')
+    ->timezone('Pacific/Port_Moresby');
+
+Schedule::command('gym:notify-upcoming')
+    ->everyFiveMinutes()
+    ->timezone('Pacific/Port_Moresby');
