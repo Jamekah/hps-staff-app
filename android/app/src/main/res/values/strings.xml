@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HPS Staff</string>
+    <string name="title_activity_main">HPS Staff</string>
+    <string name="package_name">com.hps.staffapp</string>
+    <string name="custom_url_scheme">com.hps.staffapp</string>
+</resources>

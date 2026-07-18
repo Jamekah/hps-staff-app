@@ -11,59 +11,25 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-let messaging = null;
+const isNative = () => !!window.Capacitor?.isNativePlatform?.();
 
-async function messagingInstance() {
-    if (messaging) return messaging;
-    if (!(await isSupported())) return null;
-
-    messaging = getMessaging(initializeApp(firebaseConfig));
-    return messaging;
-}
+const isAuthenticated = () => !!document.querySelector('[aria-label="Notifications"]');
 
 function csrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 }
 
-async function registerToken() {
-    const instance = await messagingInstance();
-    if (!instance) return false;
-
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-
-    const token = await getToken(instance, {
-        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-        serviceWorkerRegistration: registration,
-    });
-
-    if (!token) return false;
-
+async function sendTokenToServer(token, platform) {
     await fetch('/api/device-tokens', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': csrfToken(),
         },
-        body: JSON.stringify({ token, platform: 'web' }),
+        body: JSON.stringify({ token, platform }),
     });
 
     localStorage.setItem(TOKEN_STORAGE_KEY, token);
-
-    listenForForegroundMessages(instance);
-
-    return true;
-}
-
-function listenForForegroundMessages(instance) {
-    onMessage(instance, (payload) => {
-        const title = payload.notification?.title || payload.data?.title;
-        if (!title) return;
-
-        showToast(title, payload.notification?.body || payload.data?.body || '');
-
-        // Nudge the bell to refresh its count.
-        window.Livewire?.dispatch('$refresh');
-    });
 }
 
 function showToast(title, body) {
@@ -77,7 +43,106 @@ function showToast(title, body) {
     setTimeout(() => toast.remove(), 8000);
 }
 
-// Called from the "Enable notifications" banner button.
+/* ---------------------------------------------------------------- *
+ * Native (Capacitor Android app) — uses the injected native bridge  *
+ * ---------------------------------------------------------------- */
+
+let nativeInitialized = false;
+
+async function initNativePush() {
+    if (nativeInitialized || !isAuthenticated()) return;
+    nativeInitialized = true;
+
+    const { PushNotifications } = window.Capacitor.Plugins;
+    if (!PushNotifications) return;
+
+    await PushNotifications.addListener('registration', ({ value }) => {
+        sendTokenToServer(value, 'android').catch((error) =>
+            console.error('Device token registration failed:', error));
+    });
+
+    await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        const title = notification.title || notification.data?.title;
+        if (title) showToast(title, notification.body || notification.data?.body || '');
+
+        window.Livewire?.dispatch('$refresh');
+    });
+
+    await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        const link = action.notification?.data?.link;
+        if (link) window.location.href = link;
+    });
+
+    let permission = await PushNotifications.checkPermissions();
+
+    if (permission.receive === 'prompt') {
+        permission = await PushNotifications.requestPermissions();
+    }
+
+    if (permission.receive === 'granted') {
+        // Register on every app open — FCM tokens can rotate.
+        await PushNotifications.register();
+    }
+}
+
+function initNativeShell() {
+    const { App } = window.Capacitor.Plugins;
+
+    // Hardware back button: browse back through history; from the landing
+    // page, minimize instead of dead-exiting.
+    App?.addListener('backButton', ({ canGoBack }) => {
+        if (canGoBack) {
+            window.history.back();
+        } else {
+            App.minimizeApp();
+        }
+    });
+}
+
+/* ---------------------------------------------------------------- *
+ * Web (browsers) — Firebase JS SDK + service worker                 *
+ * ---------------------------------------------------------------- */
+
+let messaging = null;
+
+let webInitialized = false;
+
+async function messagingInstance() {
+    if (messaging) return messaging;
+    if (!(await isSupported())) return null;
+
+    messaging = getMessaging(initializeApp(firebaseConfig));
+    return messaging;
+}
+
+async function registerWebToken() {
+    const instance = await messagingInstance();
+    if (!instance) return false;
+
+    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+
+    const token = await getToken(instance, {
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration: registration,
+    });
+
+    if (!token) return false;
+
+    await sendTokenToServer(token, 'web');
+
+    onMessage(instance, (payload) => {
+        const title = payload.notification?.title || payload.data?.title;
+        if (!title) return;
+
+        showToast(title, payload.notification?.body || payload.data?.body || '');
+
+        window.Livewire?.dispatch('$refresh');
+    });
+
+    return true;
+}
+
+// Called from the "Enable notifications" banner button (web only).
 window.hpsEnablePush = async function () {
     if (!('Notification' in window)) return false;
 
@@ -85,7 +150,7 @@ window.hpsEnablePush = async function () {
     if (permission !== 'granted') return false;
 
     try {
-        return await registerToken();
+        return await registerWebToken();
     } catch (error) {
         console.error('Push registration failed:', error);
         return false;
@@ -93,6 +158,7 @@ window.hpsEnablePush = async function () {
 };
 
 window.hpsPushState = function () {
+    if (isNative()) return 'native'; // Handled automatically; hide the banner.
     if (!('Notification' in window) || !navigator.serviceWorker) return 'unsupported';
     if (localStorage.getItem(DISMISSED_KEY)) return 'dismissed';
     return Notification.permission; // 'default' | 'granted' | 'denied'
@@ -102,13 +168,39 @@ window.hpsDismissPush = function () {
     localStorage.setItem(DISMISSED_KEY, '1');
 };
 
-// On page load: if permission was already granted, silently re-register so a
-// refreshed FCM token always replaces the stale one.
-if ('Notification' in window && navigator.serviceWorker && Notification.permission === 'granted') {
-    registerToken().catch((error) => console.error('Push token refresh failed:', error));
+/* ---------------------------------------------------------------- *
+ * Bootstrapping                                                     *
+ * ---------------------------------------------------------------- */
+
+function boot() {
+    if (isNative()) {
+        initNativePush().catch((error) => console.error('Native push init failed:', error));
+
+        return;
+    }
+
+    // Web: silently refresh the token when permission was already granted.
+    if (!webInitialized
+        && isAuthenticated()
+        && 'Notification' in window
+        && navigator.serviceWorker
+        && Notification.permission === 'granted') {
+        webInitialized = true;
+        registerWebToken().catch((error) => console.error('Push token refresh failed:', error));
+    }
 }
 
-// On logout, unregister this device's token so the next user of the browser
+if (isNative()) {
+    initNativeShell();
+}
+
+boot();
+
+// Livewire's wire:navigate swaps pages without reloading scripts — re-check
+// after each navigation so push initializes right after login.
+document.addEventListener('livewire:navigated', boot);
+
+// On logout, unregister this device's token so the next user of the device
 // doesn't receive the previous user's pushes.
 document.addEventListener('click', (event) => {
     const logoutButton = event.target.closest('button[wire\\:click="logout"]');
@@ -118,6 +210,7 @@ document.addEventListener('click', (event) => {
     if (!token) return;
 
     localStorage.removeItem(TOKEN_STORAGE_KEY);
+    nativeInitialized = false;
 
     fetch('/api/device-tokens', {
         method: 'DELETE',

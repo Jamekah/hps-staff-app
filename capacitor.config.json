@@ -1,0 +1,16 @@
+{
+    "appId": "com.hps.staffapp",
+    "appName": "HPS Staff",
+    "webDir": "capacitor-shell",
+    "server": {
+        "url": "https://hps-staff-app-production-nq8tav.laravel.cloud",
+        "errorPath": "offline.html"
+    },
+    "plugins": {
+        "SplashScreen": {
+            "launchShowDuration": 1500,
+            "launchAutoHide": true,
+            "backgroundColor": "#ffffff"
+        }
+    }
+}

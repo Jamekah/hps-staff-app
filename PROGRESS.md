@@ -10,7 +10,7 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 | 1. Foundation | Scaffold, auth + password reset, roles/policies, super admin seeder, user management | ✅ Complete & deployed to Laravel Cloud |
 | 2. Core pages | Events calendar, gym schedule, announcements, shared folder | ✅ Complete (needs deploy + bucket setup) |
 | 3. Notifications | In-app feed, FCM, device tokens, scheduled jobs | ✅ Complete (needs queue worker + scheduler on Cloud) |
-| 4. Android | Capacitor wrapper, FCM native, APK build | ⬜ Not started |
+| 4. Android | Capacitor wrapper, FCM native, APK build | ✅ Complete — signed APK built |
 
 ---
 
@@ -174,8 +174,54 @@ credentials live only in `.env` / Laravel Cloud secrets (verified: none in repo)
 - Confirm the `FIREBASE_CREDENTIALS` + `VITE_FIREBASE_*` env vars are set
   (VITE_ ones must be present at **build** time for the JS bundle).
 
-## Phase 4 — Android ⬜
-Planned: Capacitor wrapper, FCM native setup, APK build.
+## Phase 4 — Android ✅ (2026-07-18)
+
+Built per `../PHASE-4-BRIEF.md`. **Capacitor 8** (brief said 6; 8 is current,
+same APIs, matches the installed Java 21 toolchain).
+
+### Built
+- **Branding**: HPS logo (phoenix "P") now replaces the Breeze placeholder in
+  the web app header and login page (`public/images/logo.png`, source kept at
+  `branding/logo.png`). Android app icon (adaptive), round icon, and light/dark
+  splash screens generated from it via @capacitor/assets. ⚠️ Source logo is
+  177×153px — icons are upscaled; swap in a ≥1024px version later for crisper
+  results (regenerate with `npx @capacitor/assets generate --android`).
+- **Capacitor Android project** (`android/`, package `com.hps.staffapp`,
+  "HPS Staff") in **remote-URL mode**: the shell loads the production site over
+  https and injects the native bridge, so web deploys reach the app instantly —
+  no reinstall. Offline fallback retry page (`capacitor-shell/offline.html`)
+  via `server.errorPath`. minSdk 26, portrait-locked, cleartext traffic off,
+  white status bar matching the header.
+- **Native push**: `push.js` branches at runtime — on Android it uses the
+  Capacitor PushNotifications bridge (runtime permission incl. Android 13+,
+  registers token as `platform: android` on every app open, foreground toasts,
+  notification-tap navigates to the payload link); browsers keep the Phase 3
+  web flow. High-importance `hps_default` notification channel (heads-up +
+  sound) created in MainActivity and referenced from the manifest for FCM.
+- **Back button**: navigates history; minimizes (not exits) from the landing page.
+- **Signing**: release keystore `android/app/hps-release.jks` (30-year validity,
+  CN=HPS Staff App / O=High Performance Sports / L=Port Moresby / C=PG) with
+  credentials in `android/keystore.properties` — both **git-ignored**, along
+  with `google-services.json` and `local.properties` (verified none staged).
+- **APK**: `android/app/build/outputs/apk/release/app-release.apk` (5.5 MB,
+  APK Signature Scheme v2/v3 verified) — copied to `../HPS-Staff-v1.0.apk`.
+
+### ⚠️ CRITICAL — keystore backup (owner action)
+Back up `android/app/hps-release.jks` **and** `android/keystore.properties`
+somewhere safe outside this machine (e.g. a private cloud drive). They are not
+in git. **If the keystore is lost, future app updates cannot install over the
+old APK** — staff would have to uninstall/reinstall.
+
+### Remaining verification (needs a physical phone)
+Sideload `HPS-Staff-v1.0.apk` → login → allow notifications → confirm an
+`android` row in device_tokens → publish announcement with app closed →
+tray notification → tap opens announcements page → back-button behavior.
+
+---
+
+## 🎉 All four build phases complete
+Web app live on Laravel Cloud; Android APK ready for sideload distribution.
+Future roadmap (per CLAUDE.md): sports clinic booking module, possible iOS wrapper.
 
 ---
 

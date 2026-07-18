@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HPS Staff — Offline</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            color: #1f2937;
+        }
+        .card { padding: 2rem; max-width: 20rem; }
+        h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+        p { font-size: 0.9rem; color: #6b7280; margin: 0 0 1.5rem; }
+        button {
+            background: #1f2937;
+            color: #fff;
+            border: 0;
+            border-radius: 0.5rem;
+            padding: 0.75rem 2rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>No connection</h1>
+        <p>The HPS Staff app needs an internet connection. Check your data or Wi-Fi and try again.</p>
+        <button onclick="window.location.replace('https://hps-staff-app-production-nq8tav.laravel.cloud')">
+            Retry
+        </button>
+    </div>
+</body>
+</html>
