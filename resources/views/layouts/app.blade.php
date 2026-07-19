@@ -15,7 +15,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
+        <div class="min-h-screen bg-gray-100 flex flex-col">
             <livewire:layout.navigation />
 
             {{-- Dismissible enable-push banner: only shown while permission is undecided --}}
@@ -47,9 +47,11 @@
             @endif
 
             <!-- Page Content -->
-            <main>
+            <main class="flex-1">
                 {{ $slot }}
             </main>
+
+            <x-support-footer />
         </div>
     </body>
 </html>

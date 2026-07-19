@@ -231,3 +231,12 @@ Future roadmap (per CLAUDE.md): sports clinic booking module, possible iOS wrapp
 - Mail is `log` driver locally (reset links land in `storage/logs/laravel.log`).
 - **Action for Jason**: change the super admin password after first production login —
   it was shared in a plaintext note.
+
+---
+
+## Post-launch tweaks (2026-07-18)
+- App heading **"HPS Operations"** added beside the logo in the nav bar and on the
+  login screen.
+- Footer with **"Information and support"** link on every page (app + login
+  layouts); opens a popup crediting JMK IT Solutions with a link to
+  https://jmkits.net/. Footer pinned to the bottom via flex layout.
