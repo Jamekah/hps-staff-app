@@ -7,10 +7,14 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1. Foundation | Scaffold, auth + password reset, roles/policies, super admin seeder, user management | ✅ Complete & deployed to Laravel Cloud |
-| 2. Core pages | Events calendar, gym schedule, announcements, shared folder | ✅ Complete (needs deploy + bucket setup) |
-| 3. Notifications | In-app feed, FCM, device tokens, scheduled jobs | ✅ Complete (needs queue worker + scheduler on Cloud) |
-| 4. Android | Capacitor wrapper, FCM native, APK build | ✅ Complete — signed APK built |
+| 1. Foundation | Scaffold, auth + password reset, roles/policies, super admin seeder, user management | ✅ Live in production |
+| 2. Core pages | Events calendar, gym schedule, announcements, shared folder | ✅ Live in production |
+| 3. Notifications | In-app feed, FCM, device tokens, scheduled jobs | ✅ Live in production |
+| 4. Android | Capacitor wrapper, FCM native, APK build | ✅ Installed & verified on a physical phone |
+
+**Everything below is verified working in production as of 2026-07-18.** Cloud
+infrastructure configured by Jason: MySQL, object-storage bucket, queue worker,
+scheduler, Gmail SMTP mail, Firebase env secrets.
 
 ---
 
@@ -212,10 +216,11 @@ somewhere safe outside this machine (e.g. a private cloud drive). They are not
 in git. **If the keystore is lost, future app updates cannot install over the
 old APK** — staff would have to uninstall/reinstall.
 
-### Remaining verification (needs a physical phone)
-Sideload `HPS-Staff-v1.0.apk` → login → allow notifications → confirm an
-`android` row in device_tokens → publish announcement with app closed →
-tray notification → tap opens announcements page → back-button behavior.
+### Phone verification ✅ (2026-07-18)
+APK sideloaded on a physical Android phone by Jason: login, all pages, and
+push notifications confirmed working — including tray notifications with the
+app closed. Web changes deployed to Laravel Cloud appear in the app without
+reinstalling (remote-URL mode).
 
 ---
 
@@ -228,7 +233,14 @@ Future roadmap (per CLAUDE.md): sports clinic booking module, possible iOS wrapp
 ## Environment / Ops Notes
 - Local: XAMPP (PHP 8.2.12, MariaDB 10.4), Composer 2.9.5. Start MySQL before working.
 - Run app: `php artisan serve` · Run tests: `php artisan test`
-- Mail is `log` driver locally (reset links land in `storage/logs/laravel.log`).
+- Mail: `log` driver locally (reset links land in `storage/logs/laravel.log`);
+  **Gmail SMTP in production** (app password stored as a Cloud secret). New-user
+  set-password emails verified delivering to real inboxes.
+- **Secrets never in git** (verified): `.env`, `android/app/google-services.json`,
+  `android/keystore.properties`, `android/app/hps-release.jks`.
+- ⚠️ **Keystore backup**: `android/app/hps-release.jks` + its passwords exist ONLY
+  on this machine. Losing them means future APKs cannot update-install over the
+  installed one. Back them up somewhere safe.
 - **Action for Jason**: change the super admin password after first production login —
   it was shared in a plaintext note.
 
