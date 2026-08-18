@@ -255,11 +255,12 @@ Future roadmap (per CLAUDE.md): sports clinic booking module, possible iOS wrapp
 
 ---
 
-## UI Redesign — "Modernist" (branch: `redesign`, 2026-08-18)
+## UI Redesign — "Modernist" ✅ (2026-08-18)
 
 Implemented from the Claude Design project *Website redesign with calendar*
 (`Calendar Redesign.dc.html`, `Gym Schedule Redesign.dc.html`, and the
-`modernist` design-system bundle). **Not merged to main** — review first.
+`modernist` design-system bundle). Built on the `redesign` branch, reviewed
+locally by Jason, and **merged to main / deployed to production**.
 
 ### Design decisions taken
 - **Desktop calendar: variant 1A "Ledger"** — the design doc itself carried this
