@@ -16,7 +16,9 @@ new class extends Component
     }
 }; ?>
 
-<nav x-data="{ open: false }" class="border-b-2 border-ink bg-white">
+{{-- safe-top keeps the header clear of the phone's status bar; the white
+     background extends up behind it so the band reads as part of the app. --}}
+<nav x-data="{ open: false }" class="safe-top border-b-2 border-ink bg-white">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 justify-between">

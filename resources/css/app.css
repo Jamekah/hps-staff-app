@@ -19,6 +19,23 @@
 }
 
 @layer components {
+    /*
+     * Safe areas — Android 15+ (targetSdk 35+) forces edge-to-edge, so the
+     * Capacitor WebView renders *behind* the system status bar and navigation
+     * bar. These pad content clear of them.
+     *
+     * env() resolves to 0 in a desktop or mobile browser (where the chrome is
+     * outside the page), so these are inert everywhere except the native app.
+     * Requires `viewport-fit=cover` on the viewport meta tag.
+     */
+    .safe-top {
+        padding-top: env(safe-area-inset-top, 0px);
+    }
+
+    .safe-bottom {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
     /* Small uppercase letterspaced label — the system's workhorse for section
        headings, table headers, and field labels. */
     .hps-label {

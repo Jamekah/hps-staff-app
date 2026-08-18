@@ -319,3 +319,21 @@ locally by Jason, and **merged to main / deployed to production**.
   "New Event / New Session / New Announcement / Upload File / Edit Event /
   Edit Session" on any page, while an admin sees all of them. No `@can` gate was
   lost in the restyle.
+
+### Status bar fix (2026-08-18)
+On the Android app the header sat underneath the phone's status bar, making the
+menu and notification bell hard to tap. Cause: the app targets **SDK 36**, and
+**Android 15+ forces edge-to-edge** — the WebView renders behind the status bar
+and the `android:statusBarColor` in `styles.xml` is ignored on those versions.
+
+Fixed in CSS rather than natively, so it deploys through Laravel Cloud and reaches
+installed phones **without an APK rebuild or reinstall**:
+- `viewport-fit=cover` added to both layouts' viewport meta (required for `env()`
+  to report real inset values).
+- `.safe-top` / `.safe-bottom` utilities in `app.css` pad content clear of the
+  status bar and the on-screen navigation bar.
+- Applied to the nav (its white background extends up behind the status bar, so
+  the band reads as part of the app) and to the page wrappers.
+
+`env()` resolves to 0 in desktop and mobile browsers, so the change is inert
+outside the native app — verified: nav padding 0px and unchanged height in-browser.
