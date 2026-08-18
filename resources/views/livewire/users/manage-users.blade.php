@@ -1,85 +1,89 @@
-<div class="py-12">
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800">User Management</h2>
-            <button wire:click="openCreate"
-                class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+<div class="py-4 sm:py-6">
+    <div class="mx-auto max-w-7xl space-y-4 px-3 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between gap-3">
+            <h2 class="text-xl font-extrabold tracking-tight text-ink sm:text-2xl">User Management</h2>
+            <x-primary-button wire:click="openCreate" type="button" class="hidden sm:inline-flex">
                 + New User
-            </button>
+            </x-primary-button>
         </div>
 
-        @if (session('status'))
-            <div class="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800">
-                {{ session('status') }}
-            </div>
-        @endif
+        <x-flash />
 
-        @if (session('error'))
-            <div class="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-                {{ session('error') }}
-            </div>
-        @endif
-
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-            <div class="p-4 border-b border-gray-100">
+        <div class="hps-panel">
+            <div class="border-b border-ink-200 p-4">
                 <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search by name or email…"
-                    class="w-full sm:w-80 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm">
+                    class="w-full border border-ink-400 bg-surface px-2.5 py-2 text-sm text-ink caret-accent placeholder:text-ink-500 focus:border-accent focus:ring-0 sm:w-80">
             </div>
 
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                        <tr>
-                            <th class="px-4 py-3">Name</th>
-                            <th class="px-4 py-3">Email</th>
-                            <th class="px-4 py-3">Role</th>
-                            <th class="px-4 py-3">Status</th>
-                            <th class="px-4 py-3 text-right">Actions</th>
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="border-b-2 border-ink">
+                            <th class="hps-label px-4 py-3 text-start">Name</th>
+                            <th class="hps-label hidden px-4 py-3 text-start sm:table-cell">Email</th>
+                            <th class="hps-label px-4 py-3 text-start">Role</th>
+                            <th class="hps-label hidden px-4 py-3 text-start sm:table-cell">Status</th>
+                            <th class="hps-label px-4 py-3 text-end">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100">
+                    <tbody>
                         @forelse ($users as $user)
-                            <tr wire:key="user-{{ $user->id }}">
-                                <td class="px-4 py-3 font-medium text-gray-900">{{ $user->name }}</td>
-                                <td class="px-4 py-3 text-gray-600">{{ $user->email }}</td>
+                            <tr wire:key="user-{{ $user->id }}" class="border-b border-ink-200 transition hover:bg-ink-100">
+                                <td class="px-4 py-3">
+                                    <div class="font-bold text-ink">{{ $user->name }}</div>
+                                    <div class="truncate text-xs text-ink-600 sm:hidden">{{ $user->email }}</div>
+                                </td>
+                                <td class="hidden px-4 py-3 text-ink-700 sm:table-cell">{{ $user->email }}</td>
                                 <td class="px-4 py-3">
                                     <span @class([
-                                        'inline-flex rounded-full px-2 py-0.5 text-xs font-semibold',
-                                        'bg-purple-100 text-purple-800' => $user->role === \App\Enums\Role::SuperAdmin,
-                                        'bg-blue-100 text-blue-800' => $user->role === \App\Enums\Role::Admin,
-                                        'bg-gray-100 text-gray-700' => $user->role === \App\Enums\Role::Staff,
+                                        'inline-flex px-2 py-1 text-[10px] font-extrabold uppercase tracking-label',
+                                        'bg-accent text-white' => $user->role === \App\Enums\Role::SuperAdmin,
+                                        'bg-ink-900 text-ink-100' => $user->role === \App\Enums\Role::Admin,
+                                        'bg-ink-200 text-ink-800' => $user->role === \App\Enums\Role::Staff,
                                     ])>
                                         {{ $user->role->label() }}
                                     </span>
-                                </td>
-                                <td class="px-4 py-3">
                                     <span @class([
-                                        'inline-flex rounded-full px-2 py-0.5 text-xs font-semibold',
-                                        'bg-green-100 text-green-800' => $user->is_active,
-                                        'bg-red-100 text-red-800' => ! $user->is_active,
+                                        'mt-1 block text-[10px] font-bold uppercase tracking-label sm:hidden',
+                                        'text-studio2' => $user->is_active,
+                                        'text-accent-700' => ! $user->is_active,
+                                    ])>{{ $user->is_active ? 'Active' : 'Inactive' }}</span>
+                                </td>
+                                <td class="hidden px-4 py-3 sm:table-cell">
+                                    <span @class([
+                                        'inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-label',
+                                        'text-studio2' => $user->is_active,
+                                        'text-accent-700' => ! $user->is_active,
                                     ])>
+                                        <span @class([
+                                            'h-2 w-2',
+                                            'bg-studio2' => $user->is_active,
+                                            'bg-accent' => ! $user->is_active,
+                                        ])></span>
                                         {{ $user->is_active ? 'Active' : 'Inactive' }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap">
-                                    <button wire:click="openEdit({{ $user->id }})"
-                                        class="text-indigo-600 hover:text-indigo-800 font-medium">Edit</button>
-                                    <button wire:click="sendResetLink({{ $user->id }})"
-                                        class="text-gray-600 hover:text-gray-800 font-medium">Reset link</button>
-                                    @if ($user->id !== auth()->id())
-                                        <button wire:click="toggleActive({{ $user->id }})"
-                                            class="{{ $user->is_active ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800' }} font-medium">
-                                            {{ $user->is_active ? 'Deactivate' : 'Activate' }}
-                                        </button>
-                                        <button wire:click="delete({{ $user->id }})"
-                                            wire:confirm="Delete {{ $user->name }}? This cannot be undone."
-                                            class="text-red-600 hover:text-red-800 font-medium">Delete</button>
-                                    @endif
+                                <td class="whitespace-nowrap px-4 py-3 text-end">
+                                    <div class="flex flex-wrap justify-end gap-x-3 gap-y-1">
+                                        <button wire:click="openEdit({{ $user->id }})"
+                                            class="text-[11px] font-bold uppercase tracking-label text-accent-700 transition hover:text-accent">Edit</button>
+                                        <button wire:click="sendResetLink({{ $user->id }})"
+                                            class="text-[11px] font-bold uppercase tracking-label text-ink-700 transition hover:text-ink">Reset link</button>
+                                        @if ($user->id !== auth()->id())
+                                            <button wire:click="toggleActive({{ $user->id }})"
+                                                class="text-[11px] font-bold uppercase tracking-label text-ink-700 transition hover:text-ink">
+                                                {{ $user->is_active ? 'Deactivate' : 'Activate' }}
+                                            </button>
+                                            <button wire:click="delete({{ $user->id }})"
+                                                wire:confirm="Delete {{ $user->name }}? This cannot be undone."
+                                                class="text-[11px] font-bold uppercase tracking-label text-accent-700 transition hover:text-accent">Delete</button>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-4 py-8 text-center text-gray-500">No users found.</td>
+                                <td colspan="5" class="px-4 py-10 text-center text-sm text-ink-600">No users found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -90,58 +94,50 @@
                 {{ $users->links() }}
             </div>
         </div>
+
+        <x-primary-button wire:click="openCreate" type="button" class="w-full justify-start py-4 sm:hidden">
+            + New User
+        </x-primary-button>
     </div>
 
-    {{-- Create / Edit modal --}}
+    {{-- Create / edit form --}}
     @if ($showModal)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="fixed inset-0 bg-gray-900/50" wire:click="$set('showModal', false)"></div>
+        <x-sheet :title="$editingId ? 'Edit User' : 'New User'" close="$set('showModal', false)">
+            <form wire:submit="save" class="space-y-4 p-4">
+                <div>
+                    <x-input-label for="name" value="Name" />
+                    <x-text-input wire:model="name" id="name" type="text" class="mt-1" />
+                    <x-input-error :messages="$errors->get('name')" class="mt-1" />
+                </div>
 
-            <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
-                <h3 class="text-lg font-semibold text-gray-900">
-                    {{ $editingId ? 'Edit User' : 'New User' }}
-                </h3>
+                <div>
+                    <x-input-label for="email" value="Email" />
+                    <x-text-input wire:model="email" id="email" type="email" class="mt-1" />
+                    <x-input-error :messages="$errors->get('email')" class="mt-1" />
+                </div>
 
-                <form wire:submit="save" class="space-y-4">
-                    <div>
-                        <x-input-label for="name" value="Name" />
-                        <x-text-input wire:model="name" id="name" type="text" class="mt-1 block w-full" />
-                        <x-input-error :messages="$errors->get('name')" class="mt-1" />
-                    </div>
+                <div>
+                    <x-input-label for="role" value="Role" />
+                    <select wire:model="role" id="role"
+                        class="mt-1 block w-full border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:ring-0">
+                        @foreach ($roles as $roleOption)
+                            <option value="{{ $roleOption->value }}">{{ $roleOption->label() }}</option>
+                        @endforeach
+                    </select>
+                    <x-input-error :messages="$errors->get('role')" class="mt-1" />
+                </div>
 
-                    <div>
-                        <x-input-label for="email" value="Email" />
-                        <x-text-input wire:model="email" id="email" type="email" class="mt-1 block w-full" />
-                        <x-input-error :messages="$errors->get('email')" class="mt-1" />
-                    </div>
+                @unless ($editingId)
+                    <p class="border-s-4 border-ink bg-ink-100 px-3 py-2 text-xs text-ink-700">
+                        The new user will receive an email with a link to set their password.
+                    </p>
+                @endunless
 
-                    <div>
-                        <x-input-label for="role" value="Role" />
-                        <select wire:model="role" id="role"
-                            class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm">
-                            @foreach ($roles as $roleOption)
-                                <option value="{{ $roleOption->value }}">{{ $roleOption->label() }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error :messages="$errors->get('role')" class="mt-1" />
-                    </div>
-
-                    @unless ($editingId)
-                        <p class="text-xs text-gray-500">
-                            The new user will receive an email with a link to set their password.
-                        </p>
-                    @endunless
-
-                    <div class="flex justify-end gap-3 pt-2">
-                        <x-secondary-button wire:click="$set('showModal', false)" type="button">
-                            Cancel
-                        </x-secondary-button>
-                        <x-primary-button>
-                            {{ $editingId ? 'Save Changes' : 'Create User' }}
-                        </x-primary-button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                <div class="flex justify-end gap-2 pt-1">
+                    <x-secondary-button wire:click="$set('showModal', false)" type="button">Cancel</x-secondary-button>
+                    <x-primary-button>{{ $editingId ? 'Save Changes' : 'Create User' }}</x-primary-button>
+                </div>
+            </form>
+        </x-sheet>
     @endif
 </div>

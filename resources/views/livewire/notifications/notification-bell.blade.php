@@ -1,13 +1,14 @@
 <div x-data="{ open: false }" class="relative" wire:poll.60s>
     <button @click="open = !open" type="button"
-        class="relative p-2 text-gray-500 hover:text-gray-700 rounded-full focus:outline-none"
+        class="relative p-2 text-ink-800 transition hover:text-accent focus:outline-none"
         aria-label="Notifications">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
         </svg>
 
         @if ($unreadCount > 0)
-            <span class="absolute top-0.5 end-0.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+            <span class="absolute -top-0.5 -end-0.5 inline-flex h-4 min-w-4 items-center justify-center bg-accent px-1 text-[10px] font-extrabold text-white">
                 {{ $unreadCount > 99 ? '99+' : $unreadCount }}
             </span>
         @endif
@@ -17,38 +18,38 @@
         x-transition:enter="transition ease-out duration-150"
         x-transition:enter-start="opacity-0 scale-95"
         x-transition:enter-end="opacity-100 scale-100"
-        class="absolute end-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-100 z-50">
-        <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
-            <span class="text-sm font-semibold text-gray-800">Notifications</span>
+        class="absolute end-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] border border-ink bg-white shadow-lg">
+        <div class="flex items-center justify-between border-b-2 border-ink px-4 py-3">
+            <span class="hps-label text-ink">Notifications</span>
             @if ($unreadCount > 0)
-                <button wire:click="markAllRead" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                <button wire:click="markAllRead" class="text-[11px] font-bold uppercase tracking-label text-accent-700 transition hover:text-accent">
                     Mark all read
                 </button>
             @endif
         </div>
 
-        <div class="max-h-96 overflow-y-auto divide-y divide-gray-50">
+        <div class="max-h-96 overflow-y-auto">
             @forelse ($recent as $notification)
                 <button wire:click="open('{{ $notification->id }}')" wire:key="bell-{{ $notification->id }}"
-                    class="block w-full text-start px-4 py-2.5 hover:bg-gray-50 {{ $notification->read_at ? '' : 'bg-indigo-50/60' }}">
-                    <div class="flex items-start gap-2">
+                    class="block w-full border-t border-ink-200 px-4 py-3 text-start transition first:border-t-0 hover:bg-ink-100 {{ $notification->read_at ? '' : 'bg-accent-100/60' }}">
+                    <div class="flex items-start gap-2.5">
                         @unless ($notification->read_at)
-                            <span class="mt-1.5 w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                            <span class="mt-1.5 h-2 w-2 shrink-0 bg-accent"></span>
                         @endunless
                         <div class="min-w-0">
-                            <p class="text-sm font-medium text-gray-800 truncate">{{ $notification->data['title'] ?? '' }}</p>
-                            <p class="text-xs text-gray-500 truncate">{{ $notification->data['body'] ?? '' }}</p>
-                            <p class="text-[11px] text-gray-400 mt-0.5">{{ $notification->created_at->diffForHumans() }}</p>
+                            <p class="truncate text-sm font-bold text-ink">{{ $notification->data['title'] ?? '' }}</p>
+                            <p class="truncate text-xs text-ink-700">{{ $notification->data['body'] ?? '' }}</p>
+                            <p class="mt-0.5 text-[11px] text-ink-500">{{ $notification->created_at->diffForHumans() }}</p>
                         </div>
                     </div>
                 </button>
             @empty
-                <p class="px-4 py-6 text-sm text-gray-500 text-center">No notifications yet.</p>
+                <p class="px-4 py-8 text-center text-sm text-ink-600">No notifications yet.</p>
             @endforelse
         </div>
 
         <a href="{{ route('notifications') }}" wire:navigate
-            class="block text-center text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-4 py-2.5 border-t border-gray-100">
+            class="block border-t-2 border-ink px-4 py-3 text-center text-[11px] font-extrabold uppercase tracking-label text-accent-700 transition hover:bg-ink-100">
             View all
         </a>
     </div>
