@@ -1,3 +1,47 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-paper text-ink;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        @apply font-extrabold tracking-tight leading-tight;
+    }
+
+    /* Alpine cloaks un-initialised elements; without this they flash on load. */
+    [x-cloak] {
+        display: none !important;
+    }
+}
+
+@layer components {
+    /* Small uppercase letterspaced label — the system's workhorse for section
+       headings, table headers, and field labels. */
+    .hps-label {
+        @apply text-[11px] font-bold uppercase tracking-label text-ink-500;
+    }
+
+    /* A panel: white on the paper ground with a hairline border. */
+    .hps-panel {
+        @apply border border-ink-400 bg-white;
+    }
+
+    /* Section header inside a panel — heavy ink rule underneath. */
+    .hps-panel-head {
+        @apply flex items-center justify-between border-b-2 border-ink px-4 py-3.5;
+    }
+
+    /* Row separator used in lists and stacked detail rows. */
+    .hps-row {
+        @apply border-t border-ink-200;
+    }
+
+    /* Staff chips in the detail sheets. */
+    .hps-chip {
+        @apply border border-ink-400 px-2 py-1.5 text-xs font-semibold text-ink-900;
+    }
+}

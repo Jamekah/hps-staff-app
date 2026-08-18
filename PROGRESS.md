@@ -252,3 +252,70 @@ Future roadmap (per CLAUDE.md): sports clinic booking module, possible iOS wrapp
 - Footer with **"Information and support"** link on every page (app + login
   layouts); opens a popup crediting JMK IT Solutions with a link to
   https://jmkits.net/. Footer pinned to the bottom via flex layout.
+
+---
+
+## UI Redesign — "Modernist" ✅ (2026-08-18)
+
+Implemented from the Claude Design project *Website redesign with calendar*
+(`Calendar Redesign.dc.html`, `Gym Schedule Redesign.dc.html`, and the
+`modernist` design-system bundle). Built on the `redesign` branch, reviewed
+locally by Jason, and **merged to main / deployed to production**.
+
+### Design decisions taken
+- **Desktop calendar: variant 1A "Ledger"** — the design doc itself carried this
+  direction forward (Turn 2 titled "Ledger on mobile", Turn 3 "Ledger treatment"),
+  so 1B/1C were not built.
+- **Phone calendar: variant 2A "dots + day agenda"** (Jason's pick). The grid
+  carries markers only; the tapped day lists its events in full below it.
+  2B was rejected in the design doc's own notes (titles truncate at 51px columns).
+- **Gym extras: session counts + NOW line + studio filter only** (Jason's pick).
+  "Busiest stretch", "free blocks", tomorrow's count and the overlap note in the
+  detail sheet were left out — fuzzier definitions, more logic, less value.
+
+### Theme layer
+- `tailwind.config.js` now carries the Modernist tokens: warm off-white grounds
+  (`paper` #f3f2f2 / `surface` #eae9e9), an ink ramp off #201e1d, brand red
+  `accent` #ec3013 with a 100–900 ramp, and **border radius 0 everywhere**
+  (`full` kept for genuine circles). Type is **Archivo** (400–800) via bunny.net,
+  matching the existing self-imposed no-CDN-runtime-JS constraint.
+- Studio colours moved to **blue #2f5e89 / green #216b52** (from violet/teal) with
+  tint/dark/mid/muted steps, keeping them clearly apart from the calendar's
+  ink/red event vocabulary. oklch from the design was converted to hex so older
+  Android WebViews render it.
+- `resources/css/app.css` adds four component classes used throughout:
+  `.hps-label`, `.hps-panel`, `.hps-panel-head`, `.hps-row`, `.hps-chip`.
+- New Blade components: `x-sheet` (the detail/form sheet shell), `x-flash`
+  (session status/error), `x-dark-button`. Every existing button/input/nav
+  component was restyled in place, so pages inherit the system automatically.
+
+### Pages rebuilt
+- **Calendar** — Ledger month grid (solid ink/red pills, weekday rules, "+N more"),
+  upcoming-events sidebar with date stack, phone dots grid + day agenda,
+  event detail sheet, create/edit form as a sheet with a segmented type picker.
+- **Gym Schedule** — desktop day timeline (hour gutter, tinted studio blocks with
+  S1/S2 badges, side-by-side overlaps unchanged), red **NOW** marker, "Day at a
+  glance" per-studio counts, phone time-gutter list with an ALL/S1/S2 filter,
+  and a new **session detail sheet** (tapping a block) that carries the admin
+  edit/delete actions — replacing the tiny inline icons, which were poor on phones.
+- **Announcements, Files, Users, Notifications, Profile, and all auth pages**
+  extrapolated into the same vocabulary (the brief only designed two pages).
+
+### New component state
+- `EventsCalendar::$selectedDate` + `selectDay()` — drives the phone agenda;
+  month navigation parks it on today or the 1st.
+- `GymSchedulePage::$studioFilter`, `$selectedScheduleId`, `nowOffsetPercent()`,
+  and grouped `mobileRows`. The filter is **phone-only by design**: the desktop
+  timeline always shows both studios so admins never lose sight of overlaps.
+
+### Verified
+- **114 tests passing** (288 assertions) — the 98 existing ones plus 16 new
+  covering the day agenda (multi-day spans, month navigation, empty days) and
+  the gym filter/counts/NOW marker/detail-sheet permissions.
+- **Browser-checked** at 1280px and 380px: calendar grid + agenda, gym timeline
+  with NOW line and overlapping blocks, phone list and filter — **no horizontal
+  overflow at 380px on either page**.
+- **Authorization re-checked after the rewrite**: a staff user sees none of
+  "New Event / New Session / New Announcement / Upload File / Edit Event /
+  Edit Session" on any page, while an admin sees all of them. No `@can` gate was
+  lost in the restyle.

@@ -22,6 +22,12 @@ class EventsCalendar extends Component
 
     public ?int $selectedEventId = null;
 
+    /**
+     * The day whose agenda is listed under the grid on phones (Y-m-d).
+     * Desktop shows pills in the cells and ignores this.
+     */
+    public string $selectedDate = '';
+
     public bool $showForm = false;
 
     public ?int $editingId = null;
@@ -46,26 +52,42 @@ class EventsCalendar extends Component
         $now = now();
         $this->year = $now->year;
         $this->month = $now->month;
+        $this->selectedDate = $now->toDateString();
     }
 
     public function previousMonth(): void
     {
-        $date = Carbon::create($this->year, $this->month)->subMonth();
-        $this->year = $date->year;
-        $this->month = $date->month;
+        $this->goToMonth(Carbon::create($this->year, $this->month)->subMonth());
     }
 
     public function nextMonth(): void
     {
-        $date = Carbon::create($this->year, $this->month)->addMonth();
-        $this->year = $date->year;
-        $this->month = $date->month;
+        $this->goToMonth(Carbon::create($this->year, $this->month)->addMonth());
     }
 
     public function goToday(): void
     {
-        $this->year = now()->year;
-        $this->month = now()->month;
+        $this->goToMonth(now());
+        $this->selectedDate = now()->toDateString();
+    }
+
+    public function selectDay(string $date): void
+    {
+        $this->selectedDate = Carbon::parse($date)->toDateString();
+    }
+
+    /**
+     * Move the grid to a month, keeping the mobile day agenda on a day that
+     * actually exists in it (today when it falls inside, otherwise the 1st).
+     */
+    protected function goToMonth(Carbon $date): void
+    {
+        $this->year = $date->year;
+        $this->month = $date->month;
+
+        $this->selectedDate = now()->year === $this->year && now()->month === $this->month
+            ? now()->toDateString()
+            : $date->copy()->startOfMonth()->toDateString();
     }
 
     public function selectEvent(int $eventId): void
@@ -224,11 +246,20 @@ class EventsCalendar extends Component
             ? Event::with(['staff', 'creator'])->find($this->selectedEventId)
             : null;
 
+        // The mobile agenda: events on the tapped day, drawn from the same
+        // per-cell collection the grid uses so the two can never disagree.
+        $selected = $this->selectedDate ? Carbon::parse($this->selectedDate) : null;
+        $selectedDay = $selected
+            ? collect($days)->firstWhere(fn (array $day) => $day['date']->isSameDay($selected))
+            : null;
+
         return view('livewire.calendar.events-calendar', [
             'monthLabel' => $monthStart->format('F Y'),
             'days' => $days,
             'upcoming' => $upcoming,
             'selectedEvent' => $selectedEvent,
+            'selectedDayDate' => $selected,
+            'selectedDayEvents' => $selectedDay['events'] ?? collect(),
             'activeStaff' => User::where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
     }

@@ -28,6 +28,12 @@ class GymSchedulePage extends Component
 
     public ?int $editingId = null;
 
+    /** Tapped session, shown in the detail sheet. */
+    public ?int $selectedScheduleId = null;
+
+    /** Phone-only studio filter: 'all', '1', or '2'. */
+    public string $studioFilter = 'all';
+
     // Form fields
     public string $name = '';
 
@@ -69,6 +75,16 @@ class GymSchedulePage extends Component
     public function goToday(): void
     {
         $this->date = now()->toDateString();
+    }
+
+    public function selectSession(int $scheduleId): void
+    {
+        $this->selectedScheduleId = $scheduleId;
+    }
+
+    public function closeSheet(): void
+    {
+        $this->selectedScheduleId = null;
     }
 
     /**
@@ -280,12 +296,52 @@ class GymSchedulePage extends Component
         $day = Carbon::parse($this->date);
         $sessions = GymSchedule::occurrencesOn($day);
 
+        // Phone list: one row per distinct start time, so simultaneous sessions
+        // sit together under a single time marker.
+        $filtered = $this->studioFilter === 'all'
+            ? $sessions
+            : $sessions->filter(fn (GymSchedule $s) => (string) $s->studio === $this->studioFilter);
+
+        $mobileRows = $filtered
+            ->sortBy(fn (GymSchedule $s) => $s->start_time)
+            ->groupBy(fn (GymSchedule $s) => substr($s->start_time, 0, 5))
+            ->map(fn ($group, $start) => ['start' => $start, 'sessions' => $group->values()])
+            ->values();
+
         return view('livewire.gym.gym-schedule-page', [
             'day' => $day,
             'blocks' => $this->layoutBlocks($sessions),
             'hours' => range(7, 19),
+            'mobileRows' => $mobileRows,
+            'studio1Count' => $sessions->filter(fn (GymSchedule $s) => (string) $s->studio === '1')->count(),
+            'studio2Count' => $sessions->filter(fn (GymSchedule $s) => (string) $s->studio === '2')->count(),
+            'nowOffset' => $this->nowOffsetPercent($day),
+            'selectedSchedule' => $this->selectedScheduleId
+                ? GymSchedule::with('staff')->find($this->selectedScheduleId)
+                : null,
             'activeStaff' => User::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'weekdays' => [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 0 => 'Sun'],
         ]);
+    }
+
+    /**
+     * Vertical position of the "now" marker as a percentage of the timeline,
+     * or null when the viewed day isn't today or the time is outside 07:00–19:00.
+     */
+    protected function nowOffsetPercent(Carbon $day): ?float
+    {
+        if (! $day->isToday()) {
+            return null;
+        }
+
+        $minutes = now()->hour * 60 + now()->minute;
+
+        if ($minutes < self::DAY_START_MINUTES || $minutes > self::DAY_END_MINUTES) {
+            return null;
+        }
+
+        $window = self::DAY_END_MINUTES - self::DAY_START_MINUTES;
+
+        return ($minutes - self::DAY_START_MINUTES) / $window * 100;
     }
 }
