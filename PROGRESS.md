@@ -11,7 +11,7 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 | 2. Core pages | Events calendar, gym schedule, announcements, shared folder | ✅ Live in production |
 | 3. Notifications | In-app feed, FCM, device tokens, scheduled jobs | ✅ Live in production |
 | 4. Android | Capacitor wrapper, FCM native, APK build | ✅ Installed & verified on a physical phone |
-| 5. SM Clinic | Sports medicine bookings, clash engine, clinician views | ✅ Built — awaiting review & deploy |
+| 5. SM Clinic | Sports medicine bookings, clash engine, clinician views | ✅ Live in production |
 
 **Everything below is verified working in production as of 2026-07-18.** Cloud
 infrastructure configured by Jason: MySQL, object-storage bucket, queue worker,
@@ -342,6 +342,8 @@ outside the native app — verified: nav padding 0px and unchanged height in-bro
 ---
 
 ## Phase 5 — SM Clinic ✅ (2026-08-21)
+
+Reviewed locally by Jason and **merged to main / deployed to production**.
 
 Sports Medicine booking module, built per `../PHASE-5-BRIEF.md`. Additive: no
 existing events / gym / announcements / files / notifications behaviour changed,
