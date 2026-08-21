@@ -81,6 +81,68 @@ class ManageUsersTest extends TestCase
         $this->assertSame(Role::Admin, $user->fresh()->role);
     }
 
+    public function test_super_admin_can_grant_clinic_privileges(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $user = User::factory()->create();
+
+        $this->assertFalse($user->can_book);
+        $this->assertFalse($user->is_clinician);
+
+        Livewire::actingAs($superAdmin)
+            ->test(ManageUsers::class)
+            ->call('openEdit', $user->id)
+            ->set('can_book', true)
+            ->set('is_clinician', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user->refresh();
+
+        $this->assertTrue($user->can_book);
+        $this->assertTrue($user->is_clinician);
+        $this->assertSame(Role::Staff, $user->role, 'Clinic flags are orthogonal to the role.');
+    }
+
+    public function test_clinic_privileges_can_be_revoked(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $user = User::factory()->booker()->clinician()->create();
+
+        Livewire::actingAs($superAdmin)
+            ->test(ManageUsers::class)
+            ->call('openEdit', $user->id)
+            ->set('can_book', false)
+            ->set('is_clinician', false)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user->refresh();
+
+        $this->assertFalse($user->can_book);
+        $this->assertFalse($user->is_clinician);
+    }
+
+    public function test_a_new_user_can_be_created_with_clinic_privileges(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+
+        Livewire::actingAs($superAdmin)
+            ->test(ManageUsers::class)
+            ->call('openCreate')
+            ->set('name', 'Clinic Physio')
+            ->set('email', 'physio@example.com')
+            ->set('role', 'staff')
+            ->set('is_clinician', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $created = User::where('email', 'physio@example.com')->first();
+
+        $this->assertTrue($created->is_clinician);
+        $this->assertFalse($created->can_book);
+    }
+
     public function test_super_admin_cannot_change_their_own_role(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();

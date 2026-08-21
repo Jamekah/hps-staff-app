@@ -29,6 +29,11 @@ class ManageUsers extends Component
 
     public string $role = 'staff';
 
+    /** SM Clinic privileges — orthogonal to the role enum. */
+    public bool $can_book = false;
+
+    public bool $is_clinician = false;
+
     public ?string $statusMessage = null;
 
     public function mount(): void
@@ -45,7 +50,7 @@ class ManageUsers extends Component
     {
         $this->authorize('manage-users');
 
-        $this->reset(['editingId', 'name', 'email', 'statusMessage']);
+        $this->reset(['editingId', 'name', 'email', 'statusMessage', 'can_book', 'is_clinician']);
         $this->role = 'staff';
         $this->resetValidation();
         $this->showModal = true;
@@ -61,6 +66,8 @@ class ManageUsers extends Component
         $this->name = $user->name;
         $this->email = $user->email;
         $this->role = $user->role->value;
+        $this->can_book = $user->can_book;
+        $this->is_clinician = $user->is_clinician;
         $this->statusMessage = null;
         $this->resetValidation();
         $this->showModal = true;
@@ -77,6 +84,8 @@ class ManageUsers extends Component
                 Rule::unique('users', 'email')->ignore($this->editingId),
             ],
             'role' => ['required', Rule::in(Role::values())],
+            'can_book' => ['boolean'],
+            'is_clinician' => ['boolean'],
         ]);
 
         if ($this->editingId) {
