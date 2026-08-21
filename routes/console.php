@@ -12,3 +12,11 @@ Schedule::command('events:notify-today')
 Schedule::command('gym:notify-upcoming')
     ->everyFiveMinutes()
     ->timezone('Pacific/Port_Moresby');
+
+Schedule::command('clinic:notify-upcoming')
+    ->everyFiveMinutes()
+    ->timezone('Pacific/Port_Moresby');
+
+Schedule::command('clinic:prompt-status')
+    ->everyFifteenMinutes()
+    ->timezone('Pacific/Port_Moresby');
