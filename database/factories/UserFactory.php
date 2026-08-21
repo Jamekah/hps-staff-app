@@ -31,6 +31,8 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'role' => \App\Enums\Role::Staff,
             'is_active' => true,
+            'can_book' => false,
+            'is_clinician' => false,
             'remember_token' => Str::random(10),
         ];
     }
@@ -63,6 +65,22 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_active' => false,
+        ]);
+    }
+
+    /** Staff member granted the SM Clinic booking privilege. */
+    public function booker(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'can_book' => true,
+        ]);
+    }
+
+    /** May be assigned as the clinician on an appointment. */
+    public function clinician(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_clinician' => true,
         ]);
     }
 }

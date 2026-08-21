@@ -24,6 +24,8 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'can_book',
+        'is_clinician',
     ];
 
     /**
@@ -48,6 +50,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => Role::class,
             'is_active' => 'boolean',
+            'can_book' => 'boolean',
+            'is_clinician' => 'boolean',
         ];
     }
 
@@ -66,9 +70,33 @@ class User extends Authenticatable
         return $this->belongsToMany(GymSchedule::class, 'gym_schedule_staff');
     }
 
+    public function clinicAppointments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClinicAppointment::class, 'assigned_staff_id');
+    }
+
     public function isAdmin(): bool
     {
         return in_array($this->role, [Role::Admin, Role::SuperAdmin], true);
+    }
+
+    /**
+     * May open the full SM Clinic module: manage bookings and the client
+     * database. Admins get this by virtue of their role.
+     */
+    public function canUseClinic(): bool
+    {
+        return $this->isAdmin() || $this->can_book;
+    }
+
+    /**
+     * May be assigned appointments, and so gets the scoped "My Appointments"
+     * view. Also true for anyone who already holds assignments, so revoking
+     * the flag never strands existing bookings.
+     */
+    public function hasClinicAssignments(): bool
+    {
+        return $this->is_clinician || $this->clinicAppointments()->exists();
     }
 
     public function isSuperAdmin(): bool

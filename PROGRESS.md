@@ -11,6 +11,7 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 | 2. Core pages | Events calendar, gym schedule, announcements, shared folder | ✅ Live in production |
 | 3. Notifications | In-app feed, FCM, device tokens, scheduled jobs | ✅ Live in production |
 | 4. Android | Capacitor wrapper, FCM native, APK build | ✅ Installed & verified on a physical phone |
+| 5. SM Clinic | Sports medicine bookings, clash engine, clinician views | ✅ Live in production |
 
 **Everything below is verified working in production as of 2026-07-18.** Cloud
 infrastructure configured by Jason: MySQL, object-storage bucket, queue worker,
@@ -337,3 +338,93 @@ installed phones **without an APK rebuild or reinstall**:
 
 `env()` resolves to 0 in desktop and mobile browsers, so the change is inert
 outside the native app — verified: nav padding 0px and unchanged height in-browser.
+
+---
+
+## Phase 5 — SM Clinic ✅ (2026-08-21)
+
+Reviewed locally by Jason and **merged to main / deployed to production**.
+
+Sports Medicine booking module, built per `../PHASE-5-BRIEF.md`. Additive: no
+existing events / gym / announcements / files / notifications behaviour changed,
+apart from the two new user columns and reuse of the notification pipeline and
+the gym occurrence query.
+
+### Built
+
+**New user attributes** — `can_book` and `is_clinician` booleans on `users`,
+both defaulting false and orthogonal to the `role` enum. Granted on the existing
+super-admin Users page (two checkboxes, plus at-a-glance badges in the table).
+A user may hold either, both, or neither.
+
+**Access model** (gates + policies, enforced on routes, nav, and every action):
+- Full module (`use-clinic`) — super_admin, admin, or staff with `can_book`
+- Scoped "My Appointments" (`view-own-appointments`) — anyone with
+  `is_clinician`, **or still holding assignments**, so revoking the flag never
+  strands existing bookings
+- Plain staff — no clinic nav links at all, 403 on direct access
+
+**Data model** — `clinic_services` (six seeded; only Rehabilitation recurs),
+`clinic_clients`, `clinic_appointment_series` (parent for recurring rehab), and
+`clinic_appointments` (one materialised row per occurrence). Models, factories,
+and policies for each.
+
+**`App\Services\StaffAvailability` — the conflict engine.** Deliberately
+module-agnostic (takes a user id + window), so future features reuse it directly.
+A clinician is unavailable if the window overlaps any of:
+1. events they're assigned to,
+2. gym occurrences they're allocated to (reusing `GymSchedule::occurrencesOn()`),
+3. their own `scheduled` clinic appointments.
+Overlap is half-open, so back-to-back bookings are legal. Cancelled / completed /
+no-show appointments never block. `ignoreAppointmentId` lets an edit avoid
+clashing with itself.
+
+**Booking rules** (`App\Services\ClinicBooking`):
+- **Single bookings hard-block on a clash** — deliberately unlike the gym, which
+  permits overlaps by design.
+- **Recurring rehab never blocks** — each occurrence is checked, clashing ones
+  are flagged `has_clash`, and a summary is surfaced at confirmation
+  ("3 of 12 sessions clash for X: dates"). The booker proceeds or adjusts.
+- Recurrence controls appear **only** for services with `allows_recurrence`, and
+  are re-checked server-side so a non-recurring service can never be booked as a
+  series.
+- End time pre-fills from the service's default duration and is editable per
+  booking; explicit `starts_at`/`ends_at` are persisted.
+
+**Views** — daily timeline (08:00–16:00, blocks positioned by time, overlaps
+split into side-by-side columns, clashes flagged, cancelled shown struck-through
+as history), monthly day-card overview, day/month toggle remembered per session,
+and a "Next today" side panel. Clinic gets its own **plum** accent, distinct from
+the calendar's ink/red and the gym's blue/green.
+
+**Status lifecycle** — scheduled → cancelled / completed / no_show. Cancel by a
+booker/admin or the assigned clinician; whole-series cancel available. Outcomes
+set by the assigned clinician (or a booker/admin) once the appointment has ended.
+
+**Notifications** (reusing the Phase 3 database + FCM pipeline):
+- New-assignment notice on booking (one summary per series, not per occurrence)
+- `clinic:notify-upcoming` — 60-minute reminder, 5-minute cadence, half-open
+  `[now+60m, now+65m)` window, dedupe key `clinic-reminder:{id}`
+- `clinic:prompt-status` — every 15 min, finds elapsed `scheduled` appointments,
+  prompts the clinician for an outcome, stamps `status_prompt_sent_at` so it
+  never re-prompts. Deep-links into the clinician's scoped view.
+- Both registered with the scheduler in Pacific/Port_Moresby.
+- Clients receive nothing automated (they aren't users) — noted as possible future work.
+
+### Verified
+- **179 tests passing (407 assertions)** — 81 new, no regressions in any existing suite.
+  Clash engine (13), booking service (12), access control (12), notifications (10),
+  lifecycle + UI (18), user privileges (4), plus the existing suites.
+- **Browser-checked**: daily timeline renders all appointments positioned correctly;
+  monthly view shows day cards with "+N more"; recurrence UI appears for
+  Rehabilitation and is absent for Sports massage; the clinician picker greyed out
+  a clinician **because of a genuine gym-session clash** (verified against the
+  conflict engine — Studio 1 Strength 08:30–10:00 and Studio 2 Netball 09:00–10:30);
+  the scoped view listed only the signed-in clinician's appointments and recording
+  an outcome persisted to exactly that row.
+
+### Notes for later
+- Service durations are all seeded at 30 minutes as a placeholder — supply real
+  per-service values when known (duration stays editable per booking regardless).
+- Editing an appointment acts on the single occurrence; series-level edits are
+  create-time only (cancel-series is available).

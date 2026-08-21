@@ -49,6 +49,18 @@ new class extends Component
                         {{ __('Files') }}
                     </x-nav-link>
 
+                    @can('use-clinic')
+                        <x-nav-link :href="route('clinic')" :active="request()->routeIs('clinic')" wire:navigate>
+                            {{ __('SM Clinic') }}
+                        </x-nav-link>
+                    @endcan
+
+                    @can('view-own-appointments')
+                        <x-nav-link :href="route('clinic.mine')" :active="request()->routeIs('clinic.mine')" wire:navigate>
+                            {{ __('My Appointments') }}
+                        </x-nav-link>
+                    @endcan
+
                     @can('manage-users')
                         <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')" wire:navigate>
                             {{ __('Users') }}
@@ -118,6 +130,18 @@ new class extends Component
             <x-responsive-nav-link :href="route('documents.index')" :active="request()->routeIs('documents.*')" wire:navigate>
                 {{ __('Files') }}
             </x-responsive-nav-link>
+
+            @can('use-clinic')
+                <x-responsive-nav-link :href="route('clinic')" :active="request()->routeIs('clinic')" wire:navigate>
+                    {{ __('SM Clinic') }}
+                </x-responsive-nav-link>
+            @endcan
+
+            @can('view-own-appointments')
+                <x-responsive-nav-link :href="route('clinic.mine')" :active="request()->routeIs('clinic.mine')" wire:navigate>
+                    {{ __('My Appointments') }}
+                </x-responsive-nav-link>
+            @endcan
 
             @can('manage-users')
                 <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')" wire:navigate>

@@ -4,6 +4,8 @@ use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\DocumentDownloadController;
 use App\Livewire\Announcements\AnnouncementsPage;
 use App\Livewire\Calendar\EventsCalendar;
+use App\Livewire\Clinic\ClinicSchedule;
+use App\Livewire\Clinic\MyAppointments;
 use App\Livewire\Documents\SharedFolder;
 use App\Livewire\Gym\GymSchedulePage;
 use App\Livewire\Notifications\NotificationsPage;
@@ -33,6 +35,16 @@ Route::middleware('auth')->group(function () {
 
     Route::get('documents/{document}/download', DocumentDownloadController::class)
         ->name('documents.download');
+
+    // SM Clinic — full module for admins and staff granted can_book.
+    Route::get('clinic', ClinicSchedule::class)
+        ->middleware('can:use-clinic')
+        ->name('clinic');
+
+    // Scoped view for clinicians: their own appointments only.
+    Route::get('clinic/my-appointments', MyAppointments::class)
+        ->middleware('can:view-own-appointments')
+        ->name('clinic.mine');
 
     Route::get('notifications', NotificationsPage::class)->name('notifications');
 

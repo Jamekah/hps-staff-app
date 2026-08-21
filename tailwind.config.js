@@ -70,6 +70,16 @@ export default {
                     mid: '#33604f',
                     muted: '#5b7a6e',
                 },
+
+                // SM Clinic — plum, deliberately apart from both the calendar's
+                // ink/red and the gym's blue/green so no colour means two things.
+                clinic: {
+                    DEFAULT: '#6b3fa0',
+                    tint: '#f3eefa',
+                    dark: '#452a68',
+                    mid: '#5b4480',
+                    muted: '#7a6b94',
+                },
             },
 
             // Square corners are core to the look. `full` is kept for the few

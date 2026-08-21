@@ -43,6 +43,16 @@
                                     ])>
                                         {{ $user->role->label() }}
                                     </span>
+                                    @if ($user->can_book || $user->is_clinician)
+                                        <span class="mt-1 flex flex-wrap gap-1">
+                                            @if ($user->can_book)
+                                                <span class="border border-ink-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-label text-ink-700">Books</span>
+                                            @endif
+                                            @if ($user->is_clinician)
+                                                <span class="border border-ink-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-label text-ink-700">Clinician</span>
+                                            @endif
+                                        </span>
+                                    @endif
                                     <span @class([
                                         'mt-1 block text-[10px] font-bold uppercase tracking-label sm:hidden',
                                         'text-studio2' => $user->is_active,
@@ -125,6 +135,28 @@
                         @endforeach
                     </select>
                     <x-input-error :messages="$errors->get('role')" class="mt-1" />
+                </div>
+
+                <div>
+                    <x-input-label value="SM Clinic privileges" />
+                    <div class="mt-1 space-y-2 border border-ink-400 bg-surface p-3">
+                        <label class="flex cursor-pointer items-start gap-2.5 text-sm text-ink-800">
+                            <input type="checkbox" wire:model="can_book" class="mt-0.5 border-ink-400 text-accent focus:ring-accent">
+                            <span>
+                                <span class="font-bold">Can book</span>
+                                <span class="block text-xs text-ink-600">Opens the full SM Clinic module: bookings and the client database.</span>
+                            </span>
+                        </label>
+
+                        <label class="flex cursor-pointer items-start gap-2.5 text-sm text-ink-800">
+                            <input type="checkbox" wire:model="is_clinician" class="mt-0.5 border-ink-400 text-accent focus:ring-accent">
+                            <span>
+                                <span class="font-bold">Is a clinician</span>
+                                <span class="block text-xs text-ink-600">Can be assigned appointments and gets the "My Appointments" view.</span>
+                            </span>
+                        </label>
+                    </div>
+                    <p class="mt-1 text-xs text-ink-600">Admins get full clinic access from their role.</p>
                 </div>
 
                 @unless ($editingId)
