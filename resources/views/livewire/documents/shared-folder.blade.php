@@ -2,7 +2,7 @@
     <div class="mx-auto max-w-4xl space-y-4 px-3 sm:px-6 lg:px-8">
 
         <div class="flex items-center justify-between gap-3">
-            <h2 class="text-xl font-extrabold tracking-tight text-ink sm:text-2xl">Shared Folder</h2>
+            <h2 class="text-xl font-bold tracking-tight text-ink sm:text-2xl">Shared Folder</h2>
 
             @can('create', App\Models\Document::class)
                 <x-primary-button wire:click="openUpload" type="button" class="hidden sm:inline-flex">
@@ -31,19 +31,19 @@
                                     <div class="flex min-w-0 items-center gap-2.5">
                                         @switch($document->fileKind())
                                             @case('pdf')
-                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center bg-accent text-[10px] font-extrabold text-white">PDF</span>
+                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-[10px] font-semibold text-white">PDF</span>
                                                 @break
                                             @case('word')
-                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center bg-studio1 text-[10px] font-extrabold text-white">DOC</span>
+                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-studio1 text-[10px] font-semibold text-white">DOC</span>
                                                 @break
                                             @case('excel')
-                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center bg-studio2 text-[10px] font-extrabold text-white">XLS</span>
+                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-studio2 text-[10px] font-semibold text-white">XLS</span>
                                                 @break
                                             @default
-                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center bg-ink-800 text-[10px] font-extrabold text-white">FILE</span>
+                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink-800 text-[10px] font-semibold text-white">FILE</span>
                                         @endswitch
                                         <div class="min-w-0">
-                                            <div class="truncate font-bold text-ink">{{ $document->title }}</div>
+                                            <div class="truncate font-semibold text-ink">{{ $document->title }}</div>
                                             <div class="truncate text-xs text-ink-600">
                                                 {{ $document->original_filename }}
                                                 <span class="sm:hidden">· {{ $document->humanSize() }}</span>
@@ -55,11 +55,11 @@
                                 <td class="hidden whitespace-nowrap px-4 py-3 text-ink-700 sm:table-cell">{{ $document->created_at->format('j M Y') }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-end">
                                     <a href="{{ route('documents.download', $document) }}"
-                                        class="text-[11px] font-bold uppercase tracking-label text-accent-700 transition hover:text-accent">Download</a>
+                                        class="inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-accent-700 transition hover:text-accent sm:py-0">Download</a>
                                     @can('delete', $document)
                                         <button wire:click="delete({{ $document->id }})"
                                             wire:confirm="Delete “{{ $document->title }}”? This cannot be undone."
-                                            class="ms-3 text-[11px] font-bold uppercase tracking-label text-ink-700 transition hover:text-ink">Delete</button>
+                                            class="ms-3 inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-ink-700 transition hover:text-ink sm:py-0">Delete</button>
                                     @endcan
                                 </td>
                             </tr>
@@ -97,7 +97,7 @@
                 <div>
                     <x-input-label for="doc-file" value="File (PDF, Word or Excel — max 20MB)" />
                     <input type="file" wire:model="file" id="doc-file" accept=".pdf,.doc,.docx,.xls,.xlsx"
-                        class="mt-1 block w-full border border-ink-400 bg-surface p-2 text-sm text-ink-700 file:me-3 file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-xs file:font-extrabold file:uppercase file:tracking-label file:text-ink-100 hover:file:bg-ink-900">
+                        class="mt-1 block w-full rounded-lg border border-ink-400 bg-surface p-2 text-sm text-ink-700 file:me-3 file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-xs file:font-semibold file:uppercase file:tracking-label file:text-ink-100 hover:file:bg-ink-900">
                     <div wire:loading wire:target="file" class="mt-1.5 text-xs font-semibold text-ink-600">Uploading…</div>
                     <x-input-error :messages="$errors->get('file')" class="mt-1" />
                 </div>

@@ -3,8 +3,11 @@ import forms from '@tailwindcss/forms';
 
 /**
  * "Modernist" design system — ported from the Claude Design project.
- * Ink-dominant palette on a warm off-white ground, brand red accent,
- * Archivo type, and square corners throughout (radius 0).
+ * Ink-dominant palette on a warm off-white ground, brand red accent.
+ *
+ * Refreshed per the 4C style spec (2026-09-09): Source Sans 3 replaces
+ * Archivo, weights are capped at 700, and the square corners are softened
+ * to a 12px / 8px / 3px radius scale. Palette is unchanged.
  */
 
 /** @type {import('tailwindcss').Config} */
@@ -18,7 +21,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Archivo', ...defaultTheme.fontFamily.sans],
+                sans: ['"Source Sans 3"', ...defaultTheme.fontFamily.sans],
             },
 
             colors: {
@@ -82,17 +85,23 @@ export default {
                 },
             },
 
-            // Square corners are core to the look. `full` is kept for the few
-            // genuinely circular elements (unread dots, avatars).
+            /*
+             * Radius scale from the style spec — three steps, one job each:
+             *   xl  (12px) panels, cards, the right rail, dialogs/sheets
+             *   lg  ( 8px) buttons, inputs, event pills, timeline blocks
+             *   sm  ( 3px) legend swatches, S1/S2 + status badges, NOW chip
+             *   full       notification count, the now-marker dot
+             * md/DEFAULT alias to 8px so stray utilities land sensibly.
+             */
             borderRadius: {
                 none: '0',
-                sm: '0',
-                DEFAULT: '0',
-                md: '0',
-                lg: '0',
-                xl: '0',
-                '2xl': '0',
-                '3xl': '0',
+                sm: '3px',
+                DEFAULT: '8px',
+                md: '8px',
+                lg: '8px',
+                xl: '12px',
+                '2xl': '12px',
+                '3xl': '12px',
                 full: '9999px',
             },
 

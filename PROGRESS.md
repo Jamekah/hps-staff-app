@@ -428,3 +428,42 @@ set by the assigned clinician (or a booker/admin) once the appointment has ended
   per-service values when known (duration stays editable per booking regardless).
 - Editing an appointment acts on the single occurrence; series-level edits are
   create-time only (cancel-series is available).
+
+---
+
+## UI refresh — softer type and corners ✅ (2026-09-09)
+
+Reviewed locally by Jason and **merged to main / deployed to production**.
+
+Applied the 4C style spec (`../HPS APP UI Tweak_09Sep26.txt`). A refinement of
+the Modernist system, not a new design: **layout and palette are unchanged**,
+only type and corners move. No functional change — 182 tests still passing.
+
+### Changed
+- **Type**: Archivo → **Source Sans 3** (400/500/600/700, via the bunny.net CDN
+  already in use). Weights are now **capped at 700** — the spec forbids heavier,
+  and the old 800s were what made the UI feel blocky. Headings stay 700; row
+  titles, labels and button text drop to 600 for a quieter read.
+- **Corners**: the flat 0-radius scale becomes **12px / 8px / 3px**:
+  - `rounded-xl` (12px) — panels, the right rail, dialogs and sheets
+  - `rounded-lg` (8px) — buttons, inputs, event pills, timeline blocks, chips
+  - `rounded-sm` (3px) — legend swatches, S1/S2 and status badges, the NOW chip
+  - `rounded-full` — notification count, unread dots, the now-marker dot
+- `.hps-panel` gained `overflow-hidden` so table headers and first/last rows clip
+  to the new corners instead of poking past them.
+- New `.hps-segment` component: segmented controls (day/month toggle, studio
+  filter, My Appointments tabs) and arrow pairs round only their **outer** edge,
+  so shared inner borders stay flush with no double curve.
+- Detail sheets now float as a rounded card (padding on the backdrop) rather
+  than sitting flush to the screen edge, which the 12px corners need to read.
+
+### Mobile
+Audited every page at 380px: no horizontal overflow anywhere, and **every tap
+target now meets the spec's 44px minimum** (was 10 short on the gym page and 23
+on Users — dense table action links, a pre-existing issue). Desktop keeps its
+tighter 34–36px metrics via `sm:` overrides.
+
+### Note
+The clinic's plum accent is kept as-is. It post-dates this spec, which lists
+colours only for events and studios; plum keeps the "no colour means two
+things" rule intact.

@@ -2,7 +2,7 @@
     <div class="mx-auto max-w-3xl space-y-4 px-3 sm:px-6 lg:px-8">
 
         <div class="flex items-center justify-between gap-3">
-            <h2 class="text-xl font-extrabold tracking-tight text-ink sm:text-2xl">Announcements</h2>
+            <h2 class="text-xl font-bold tracking-tight text-ink sm:text-2xl">Announcements</h2>
 
             @can('create', App\Models\Announcement::class)
                 <x-primary-button wire:click="openCreate" type="button" class="hidden sm:inline-flex">
@@ -16,20 +16,20 @@
         @forelse ($announcements as $announcement)
             <article wire:key="announcement-{{ $announcement->id }}" class="hps-panel p-5">
                 <div class="flex items-start justify-between gap-3">
-                    <h3 class="text-lg font-extrabold leading-tight tracking-tight text-ink">{{ $announcement->title }}</h3>
+                    <h3 class="text-lg font-bold leading-tight tracking-tight text-ink">{{ $announcement->title }}</h3>
 
                     @can('update', $announcement)
                         <div class="flex shrink-0 gap-3">
                             <button wire:click="openEdit({{ $announcement->id }})"
-                                class="text-[11px] font-bold uppercase tracking-label text-ink-700 transition hover:text-ink">Edit</button>
+                                class="inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-ink-700 transition hover:text-ink sm:py-0">Edit</button>
                             <button wire:click="delete({{ $announcement->id }})"
                                 wire:confirm="Delete this announcement?"
-                                class="text-[11px] font-bold uppercase tracking-label text-accent-700 transition hover:text-accent">Delete</button>
+                                class="inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-accent-700 transition hover:text-accent sm:py-0">Delete</button>
                         </div>
                     @endcan
                 </div>
 
-                <div class="my-3 h-0.5 w-8 bg-accent"></div>
+                <div class="my-3 h-0.5 w-8 rounded-full bg-accent"></div>
 
                 <p class="whitespace-pre-line text-sm leading-relaxed text-ink-800">{{ $announcement->body }}</p>
 
@@ -65,12 +65,12 @@
                 <div>
                     <x-input-label for="ann-body" value="Message" />
                     <textarea wire:model="body" id="ann-body" rows="5"
-                        class="mt-1 block w-full border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink caret-accent focus:border-accent focus:ring-0"></textarea>
+                        class="mt-1 block w-full rounded-lg border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink caret-accent focus:border-accent focus:ring-0"></textarea>
                     <x-input-error :messages="$errors->get('body')" class="mt-1" />
                 </div>
 
                 @unless ($editingId)
-                    <p class="border-s-4 border-ink bg-ink-100 px-3 py-2 text-xs text-ink-700">
+                    <p class="rounded-lg border-s-4 border-ink bg-ink-100 px-3 py-2 text-xs text-ink-700">
                         Publishing notifies every active staff member immediately.
                     </p>
                 @endunless

@@ -11,18 +11,20 @@
     button, so `close` must be a Livewire action string (e.g. "$set('x', false)").
     `actions` slot renders the ink-ruled footer used for admin controls.
 --}}
-<div class="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
+{{-- Padding keeps the sheet floating as a rounded card rather than sitting
+     flush to the screen edge, which the 12px corners need to read properly. --}}
+<div class="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-4" role="dialog" aria-modal="true">
     <div class="fixed inset-0 bg-ink-900/60" @if ($close) wire:click="{{ $close }}" @endif></div>
 
-    <div class="relative flex max-h-[92vh] w-full flex-col overflow-hidden border border-ink bg-white shadow-lg {{ $wide ? 'sm:max-w-2xl' : 'sm:max-w-md' }}">
+    <div class="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-xl border border-ink bg-white shadow-lg {{ $wide ? 'sm:max-w-2xl' : 'sm:max-w-md' }}">
         <div class="flex shrink-0 items-start justify-between gap-3 border-b-2 border-ink p-4">
             <div class="min-w-0">
                 @if ($badge)
-                    <div class="mb-2 inline-block px-2 py-1 text-[10px] font-extrabold uppercase tracking-label {{ $badgeClass }}">
+                    <div class="mb-2 inline-block rounded-sm px-2 py-1 text-[10px] font-semibold uppercase tracking-label {{ $badgeClass }}">
                         {{ $badge }}
                     </div>
                 @endif
-                <h2 class="text-xl font-extrabold leading-tight tracking-tight text-ink">{{ $title }}</h2>
+                <h2 class="text-xl font-bold leading-tight tracking-tight text-ink">{{ $title }}</h2>
             </div>
 
             @if ($close)

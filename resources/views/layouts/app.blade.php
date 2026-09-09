@@ -9,7 +9,7 @@
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=archivo:400,500,600,700,800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=source-sans-3:400,500,600,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -26,7 +26,7 @@
                     <p class="font-medium">Get notified about events, gym sessions and announcements.</p>
                     <div class="flex items-center gap-2 shrink-0">
                         <button @click="window.hpsEnablePush().then(ok => state = ok ? 'granted' : window.hpsPushState())"
-                            class="bg-accent px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-label text-white transition hover:bg-accent-600">
+                            class="bg-accent px-3 py-1.5 text-[11px] font-semibold uppercase tracking-label text-white transition hover:bg-accent-600">
                             Enable
                         </button>
                         <button @click="window.hpsDismissPush(); state = 'dismissed'"
