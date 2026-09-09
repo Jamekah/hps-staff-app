@@ -431,7 +431,9 @@ set by the assigned clinician (or a booker/admin) once the appointment has ended
 
 ---
 
-## UI refresh — softer type and corners (2026-09-09)
+## UI refresh — softer type and corners ✅ (2026-09-09)
+
+Reviewed locally by Jason and **merged to main / deployed to production**.
 
 Applied the 4C style spec (`../HPS APP UI Tweak_09Sep26.txt`). A refinement of
 the Modernist system, not a new design: **layout and palette are unchanged**,
