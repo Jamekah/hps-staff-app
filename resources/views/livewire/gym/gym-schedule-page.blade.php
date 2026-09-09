@@ -7,16 +7,16 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <div class="flex">
-                    <button wire:click="previousDay" class="flex h-10 w-10 items-center justify-center border border-ink-400 bg-white text-ink transition hover:bg-ink-100" aria-label="Previous day">
+                    <button wire:click="previousDay" class="flex h-11 w-11 items-center justify-center rounded-s-lg border border-ink-400 sm:h-10 sm:w-10 bg-white text-ink transition hover:bg-ink-100" aria-label="Previous day">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
                     </button>
-                    <button wire:click="nextDay" class="flex h-10 w-10 items-center justify-center border border-l-0 border-ink-400 bg-white text-ink transition hover:bg-ink-100" aria-label="Next day">
+                    <button wire:click="nextDay" class="flex h-11 w-11 items-center justify-center rounded-e-lg border border-l-0 border-ink-400 sm:h-10 sm:w-10 bg-white text-ink transition hover:bg-ink-100" aria-label="Next day">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
                     </button>
                 </div>
 
                 <div class="min-w-0">
-                    <h2 class="text-lg font-extrabold leading-tight tracking-tight text-ink sm:text-2xl">
+                    <h2 class="text-lg font-bold leading-tight tracking-tight text-ink sm:text-2xl">
                         <span class="sm:hidden">{{ $day->format('D j M') }}</span>
                         <span class="hidden sm:inline">{{ $day->format('l j F') }}</span>
                     </h2>
@@ -26,17 +26,17 @@
                 </div>
 
                 <input type="date" wire:model.live="date"
-                    class="hidden h-10 border border-ink-400 bg-white px-2.5 text-xs font-semibold text-ink-800 focus:border-accent focus:ring-0 sm:block">
+                    class="hidden h-10 rounded-lg border border-ink-400 bg-white px-2.5 text-xs font-semibold text-ink-800 focus:border-accent focus:ring-0 sm:block">
 
-                <button wire:click="goToday" class="border border-ink-400 bg-white px-3 py-2 text-[11px] font-extrabold uppercase tracking-label text-ink-800 transition hover:bg-ink-100">
+                <button wire:click="goToday" class="min-h-11 rounded-lg border border-ink-400 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-label text-ink-800 transition hover:bg-ink-100 sm:min-h-0">
                     Today
                 </button>
             </div>
 
             <div class="flex items-center gap-5">
                 <div class="hidden items-center gap-4 text-xs font-semibold text-ink-800 sm:flex">
-                    <span class="flex items-center gap-2"><span class="h-3 w-3 bg-studio1"></span> Studio 1</span>
-                    <span class="flex items-center gap-2"><span class="h-3 w-3 bg-studio2"></span> Studio 2</span>
+                    <span class="flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-studio1"></span> Studio 1</span>
+                    <span class="flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-studio2"></span> Studio 2</span>
                 </div>
 
                 @can('create', App\Models\GymSchedule::class)
@@ -48,25 +48,25 @@
         </div>
 
         {{-- Phone: studio filter --}}
-        <div class="flex border border-ink-400 sm:hidden">
+        <div class="hps-segment sm:hidden">
             <button wire:click="$set('studioFilter', 'all')"
                 @class([
-                    'flex-1 py-2.5 text-xs font-bold uppercase tracking-label transition',
+                    'flex-1 py-2.5 text-xs font-semibold uppercase tracking-label transition',
                     'bg-ink text-ink-100' => $studioFilter === 'all',
                     'bg-white text-ink-800' => $studioFilter !== 'all',
                 ])>All</button>
             <button wire:click="$set('studioFilter', '1')"
                 @class([
-                    'flex flex-1 items-center justify-center gap-1.5 border-l border-ink-400 py-2.5 text-xs font-bold uppercase tracking-label transition',
+                    'flex flex-1 items-center justify-center gap-1.5 border-l border-ink-400 py-2.5 text-xs font-semibold uppercase tracking-label transition',
                     'bg-ink text-ink-100' => $studioFilter === '1',
                     'bg-white text-ink-800' => $studioFilter !== '1',
-                ])><span class="h-2 w-2 bg-studio1"></span> Studio 1</button>
+                ])><span class="h-2 w-2 rounded-sm bg-studio1"></span> Studio 1</button>
             <button wire:click="$set('studioFilter', '2')"
                 @class([
-                    'flex flex-1 items-center justify-center gap-1.5 border-l border-ink-400 py-2.5 text-xs font-bold uppercase tracking-label transition',
+                    'flex flex-1 items-center justify-center gap-1.5 border-l border-ink-400 py-2.5 text-xs font-semibold uppercase tracking-label transition',
                     'bg-ink text-ink-100' => $studioFilter === '2',
                     'bg-white text-ink-800' => $studioFilter !== '2',
-                ])><span class="h-2 w-2 bg-studio2"></span> Studio 2</button>
+                ])><span class="h-2 w-2 rounded-sm bg-studio2"></span> Studio 2</button>
         </div>
 
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
@@ -108,18 +108,18 @@
                                     class="absolute p-px text-start"
                                     style="top: {{ $block['top'] }}%; height: {{ $block['height'] }}%; left: {{ $block['column'] / $block['columns'] * 100 }}%; width: {{ 100 / $block['columns'] }}%;">
                                     <div @class([
-                                        'flex h-full flex-col gap-0.5 overflow-hidden border-s-4 p-2 transition',
+                                        'flex h-full flex-col gap-0.5 overflow-hidden rounded-lg border-s-4 p-2 transition',
                                         'border-studio1 bg-studio1-tint hover:bg-studio1-tint/60' => (string) $session->studio === '1',
                                         'border-studio2 bg-studio2-tint hover:bg-studio2-tint/60' => (string) $session->studio === '2',
                                     ])>
                                         <div class="flex items-baseline justify-between gap-1.5">
                                             <span @class([
-                                                'truncate text-[13px] font-bold',
+                                                'truncate text-[13px] font-semibold',
                                                 'text-studio1-dark' => (string) $session->studio === '1',
                                                 'text-studio2-dark' => (string) $session->studio === '2',
                                             ])>{{ $session->name }}</span>
                                             <span @class([
-                                                'shrink-0 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-label text-white',
+                                                'shrink-0 rounded-sm px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-label text-white',
                                                 'bg-studio1' => (string) $session->studio === '1',
                                                 'bg-studio2' => (string) $session->studio === '2',
                                             ])>S{{ $session->studio }}</span>
@@ -149,9 +149,9 @@
 
                             @if ($nowOffset !== null)
                                 <div class="pointer-events-none absolute inset-x-0 flex items-center" style="top: {{ $nowOffset }}%;">
-                                    <span class="h-[7px] w-[7px] shrink-0 bg-accent"></span>
+                                    <span class="h-[7px] w-[7px] shrink-0 rounded-full bg-accent"></span>
                                     <span class="h-0.5 flex-1 bg-accent"></span>
-                                    <span class="shrink-0 bg-accent px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-label text-white">Now</span>
+                                    <span class="shrink-0 rounded-sm bg-accent px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-label text-white">Now</span>
                                 </div>
                             @endif
 
@@ -168,24 +168,24 @@
                 <div class="hps-panel sm:hidden">
                     @forelse ($mobileRows as $row)
                         <div wire:key="row-{{ $row['start'] }}" class="hps-row flex gap-2.5 p-3 first:border-t-0">
-                            <div class="w-12 shrink-0 pt-0.5 text-xs font-bold text-ink">{{ $row['start'] }}</div>
+                            <div class="w-12 shrink-0 pt-0.5 text-xs font-semibold text-ink">{{ $row['start'] }}</div>
                             <div class="flex min-w-0 flex-1 flex-col gap-1.5">
                                 @foreach ($row['sessions'] as $session)
                                     <button wire:click="selectSession({{ $session->id }})"
                                         wire:key="msession-{{ $session->id }}"
                                         @class([
-                                            'flex flex-col gap-1 border-s-4 p-2.5 text-start',
+                                            'flex flex-col gap-1 rounded-lg border-s-4 p-2.5 text-start',
                                             'border-studio1 bg-studio1-tint' => (string) $session->studio === '1',
                                             'border-studio2 bg-studio2-tint' => (string) $session->studio === '2',
                                         ])>
                                         <span class="flex items-baseline justify-between gap-2">
                                             <span @class([
-                                                'text-sm font-bold',
+                                                'text-sm font-semibold',
                                                 'text-studio1-dark' => (string) $session->studio === '1',
                                                 'text-studio2-dark' => (string) $session->studio === '2',
                                             ])>{{ $session->name }}</span>
                                             <span @class([
-                                                'shrink-0 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-label text-white',
+                                                'shrink-0 rounded-sm px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-label text-white',
                                                 'bg-studio1' => (string) $session->studio === '1',
                                                 'bg-studio2' => (string) $session->studio === '2',
                                             ])>S{{ $session->studio }}</span>
@@ -227,13 +227,13 @@
 
                 <div class="flex border-b border-ink-200">
                     <div class="flex-1 border-e border-ink-200 p-4">
-                        <div class="text-[11px] font-bold uppercase tracking-label text-studio1">Studio 1</div>
-                        <div class="text-2xl font-extrabold leading-tight text-ink">{{ $studio1Count }}</div>
+                        <div class="text-[11px] font-semibold uppercase tracking-label text-studio1">Studio 1</div>
+                        <div class="text-2xl font-bold leading-tight text-ink">{{ $studio1Count }}</div>
                         <div class="text-xs text-ink-600">{{ Str::plural('session', $studio1Count) }}</div>
                     </div>
                     <div class="flex-1 p-4">
-                        <div class="text-[11px] font-bold uppercase tracking-label text-studio2">Studio 2</div>
-                        <div class="text-2xl font-extrabold leading-tight text-ink">{{ $studio2Count }}</div>
+                        <div class="text-[11px] font-semibold uppercase tracking-label text-studio2">Studio 2</div>
+                        <div class="text-2xl font-bold leading-tight text-ink">{{ $studio2Count }}</div>
                         <div class="text-xs text-ink-600">{{ Str::plural('session', $studio2Count) }}</div>
                     </div>
                 </div>
@@ -328,7 +328,7 @@
                     <div>
                         <x-input-label for="client_type" value="Client type" />
                         <select wire:model="client_type" id="client_type"
-                            class="mt-1 block w-full border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:ring-0">
+                            class="mt-1 block w-full rounded-lg border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:ring-0">
                             <option value="national_federation">National Federation</option>
                             <option value="external_client">External Client</option>
                         </select>
@@ -343,13 +343,13 @@
                 <div>
                     <x-input-label value="Studio" />
                     <div class="mt-1 flex">
-                        <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 border border-ink-400 py-2.5 text-[13px] font-semibold transition has-[:checked]:bg-studio1 has-[:checked]:text-white">
+                        <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-s-lg border border-ink-400 py-2.5 text-[13px] font-semibold transition has-[:checked]:bg-studio1 has-[:checked]:text-white">
                             <input type="radio" wire:model="studio" value="1" class="sr-only">
-                            <span class="h-2.5 w-2.5 bg-studio1"></span> Studio 1
+                            <span class="h-2.5 w-2.5 rounded-sm bg-studio1"></span> Studio 1
                         </label>
-                        <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 border border-l-0 border-ink-400 py-2.5 text-[13px] font-semibold transition has-[:checked]:bg-studio2 has-[:checked]:text-white">
+                        <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-e-lg border border-l-0 border-ink-400 py-2.5 text-[13px] font-semibold transition has-[:checked]:bg-studio2 has-[:checked]:text-white">
                             <input type="radio" wire:model="studio" value="2" class="sr-only">
-                            <span class="h-2.5 w-2.5 bg-studio2"></span> Studio 2
+                            <span class="h-2.5 w-2.5 rounded-sm bg-studio2"></span> Studio 2
                         </label>
                     </div>
                     <x-input-error :messages="$errors->get('studio')" class="mt-1" />
@@ -381,7 +381,7 @@
                 <div>
                     <x-input-label for="recurrence" value="Repeats" />
                     <select wire:model.live="recurrence" id="recurrence"
-                        class="mt-1 block w-full border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:ring-0">
+                        class="mt-1 block w-full rounded-lg border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:ring-0">
                         <option value="none">Does not repeat</option>
                         <option value="daily">Daily (every day between the dates)</option>
                         <option value="weekly">Weekly (selected weekdays)</option>
@@ -394,7 +394,7 @@
                         <x-input-label value="On weekdays" />
                         <div class="mt-1 flex flex-wrap gap-1.5">
                             @foreach ($weekdays as $value => $label)
-                                <label class="flex cursor-pointer items-center gap-1.5 border border-ink-400 px-2.5 py-1.5 text-xs font-semibold transition has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-white">
+                                <label class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink-400 px-2.5 py-1.5 text-xs font-semibold transition has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-white">
                                     <input type="checkbox" wire:model="days_of_week" value="{{ $value }}" class="sr-only">
                                     {{ $label }}
                                 </label>
@@ -406,7 +406,7 @@
 
                 <div>
                     <x-input-label value="Allocate staff" />
-                    <div class="mt-1 max-h-40 space-y-1 overflow-y-auto border border-ink-400 bg-surface p-2.5">
+                    <div class="mt-1 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-ink-400 bg-surface p-2.5">
                         @foreach ($activeStaff as $member)
                             <label class="flex cursor-pointer items-center gap-2 text-sm text-ink-800">
                                 <input type="checkbox" wire:model="staffIds" value="{{ $member->id }}"

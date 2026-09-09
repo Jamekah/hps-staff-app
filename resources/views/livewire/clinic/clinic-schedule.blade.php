@@ -7,10 +7,10 @@
 
         {{-- Clash summary after booking a recurring series --}}
         @if ($clashSummary)
-            <div class="border-s-4 border-accent bg-accent-100 p-4">
+            <div class="rounded-xl border-s-4 border-accent bg-accent-100 p-4">
                 <div class="flex items-start justify-between gap-3">
                     <div>
-                        <p class="text-sm font-bold text-accent-800">
+                        <p class="text-sm font-semibold text-accent-800">
                             {{ $clashSummary['count'] }} of {{ $clashSummary['total'] }} sessions clash for {{ $clashSummary['clinician'] }}
                         </p>
                         <p class="mt-1 text-xs text-accent-800">
@@ -32,19 +32,19 @@
             <div class="flex items-center gap-3">
                 <div class="flex">
                     <button wire:click="{{ $view === 'month' ? 'previousMonth' : 'previousDay' }}"
-                        class="flex h-10 w-10 items-center justify-center border border-ink-400 bg-white text-ink transition hover:bg-ink-100"
+                        class="flex h-11 w-11 items-center justify-center rounded-s-lg border border-ink-400 sm:h-10 sm:w-10 bg-white text-ink transition hover:bg-ink-100"
                         aria-label="Previous">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
                     </button>
                     <button wire:click="{{ $view === 'month' ? 'nextMonth' : 'nextDay' }}"
-                        class="flex h-10 w-10 items-center justify-center border border-l-0 border-ink-400 bg-white text-ink transition hover:bg-ink-100"
+                        class="flex h-11 w-11 items-center justify-center rounded-e-lg border border-l-0 border-ink-400 sm:h-10 sm:w-10 bg-white text-ink transition hover:bg-ink-100"
                         aria-label="Next">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
                     </button>
                 </div>
 
                 <div class="min-w-0">
-                    <h2 class="text-lg font-extrabold leading-tight tracking-tight text-ink sm:text-2xl">
+                    <h2 class="text-lg font-bold leading-tight tracking-tight text-ink sm:text-2xl">
                         @if ($view === 'month')
                             {{ $monthLabel }}
                         @else
@@ -59,23 +59,23 @@
                     @endif
                 </div>
 
-                <button wire:click="goToday" class="border border-ink-400 bg-white px-3 py-2 text-[11px] font-extrabold uppercase tracking-label text-ink-800 transition hover:bg-ink-100">
+                <button wire:click="goToday" class="min-h-11 rounded-lg border border-ink-400 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-label text-ink-800 transition hover:bg-ink-100 sm:min-h-0">
                     Today
                 </button>
             </div>
 
             <div class="flex items-center gap-3">
                 {{-- Daily / monthly toggle --}}
-                <div class="flex border border-ink-400">
+                <div class="hps-segment">
                     <button wire:click="setView('day')"
                         @class([
-                            'px-3 py-2 text-[11px] font-extrabold uppercase tracking-label transition',
+                            'px-3 py-2 text-[11px] font-semibold uppercase tracking-label transition',
                             'bg-ink text-ink-100' => $view === 'day',
                             'bg-white text-ink-800 hover:bg-ink-100' => $view !== 'day',
                         ])>Day</button>
                     <button wire:click="setView('month')"
                         @class([
-                            'border-l border-ink-400 px-3 py-2 text-[11px] font-extrabold uppercase tracking-label transition',
+                            'border-l border-ink-400 px-3 py-2 text-[11px] font-semibold uppercase tracking-label transition',
                             'bg-ink text-ink-100' => $view === 'month',
                             'bg-white text-ink-800 hover:bg-ink-100' => $view !== 'month',
                         ])>Month</button>
@@ -125,19 +125,19 @@
                                         class="absolute p-px text-start"
                                         style="top: {{ $block['top'] }}%; height: {{ $block['height'] }}%; left: {{ $block['column'] / $block['columns'] * 100 }}%; width: {{ 100 / $block['columns'] }}%;">
                                         <div @class([
-                                            'flex h-full flex-col gap-0.5 overflow-hidden border-s-4 p-2 transition',
+                                            'flex h-full flex-col gap-0.5 overflow-hidden rounded-lg border-s-4 p-2 transition',
                                             'border-clinic bg-clinic-tint hover:bg-clinic-tint/60' => ! $appointment->isCancelled(),
                                             'border-ink-400 bg-ink-100 opacity-70' => $appointment->isCancelled(),
                                         ])>
                                             <div class="flex items-baseline justify-between gap-1.5">
                                                 <span @class([
-                                                    'truncate text-[13px] font-bold',
+                                                    'truncate text-[13px] font-semibold',
                                                     'text-clinic-dark' => ! $appointment->isCancelled(),
                                                     'text-ink-600 line-through' => $appointment->isCancelled(),
                                                 ])>{{ $appointment->client?->name }}</span>
 
                                                 @if ($appointment->has_clash)
-                                                    <span class="shrink-0 bg-accent px-1 py-0.5 text-[9px] font-extrabold uppercase tracking-label text-white" title="Clashes with another commitment">Clash</span>
+                                                    <span class="shrink-0 rounded-sm bg-accent px-1 py-0.5 text-[9px] font-semibold uppercase tracking-label text-white" title="Clashes with another commitment">Clash</span>
                                                 @endif
                                             </div>
 
@@ -179,22 +179,22 @@
                             <button wire:click="selectAppointment({{ $appointment->id }})"
                                 wire:key="m-{{ $appointment->id }}"
                                 class="hps-row flex w-full gap-2.5 p-3 text-start transition first:border-t-0 hover:bg-ink-100">
-                                <span class="w-12 shrink-0 pt-0.5 text-xs font-bold text-ink">
+                                <span class="w-12 shrink-0 pt-0.5 text-xs font-semibold text-ink">
                                     {{ $appointment->starts_at->format('H:i') }}
                                 </span>
                                 <span @class([
-                                    'flex min-w-0 flex-1 flex-col gap-1 border-s-4 p-2.5',
+                                    'flex min-w-0 flex-1 flex-col gap-1 rounded-lg border-s-4 p-2.5',
                                     'border-clinic bg-clinic-tint' => ! $appointment->isCancelled(),
                                     'border-ink-400 bg-ink-100 opacity-70' => $appointment->isCancelled(),
                                 ])>
                                     <span class="flex items-baseline justify-between gap-2">
                                         <span @class([
-                                            'text-sm font-bold',
+                                            'text-sm font-semibold',
                                             'text-clinic-dark' => ! $appointment->isCancelled(),
                                             'text-ink-600 line-through' => $appointment->isCancelled(),
                                         ])>{{ $appointment->client?->name }}</span>
                                         @if ($appointment->has_clash)
-                                            <span class="shrink-0 bg-accent px-1 py-0.5 text-[9px] font-extrabold uppercase tracking-label text-white">Clash</span>
+                                            <span class="shrink-0 rounded-sm bg-accent px-1 py-0.5 text-[9px] font-semibold uppercase tracking-label text-white">Clash</span>
                                         @endif
                                     </span>
                                     <span class="text-xs font-semibold text-clinic-mid">{{ $appointment->service?->name }}</span>
@@ -213,7 +213,7 @@
                     <div class="hps-panel">
                         <div class="grid grid-cols-7 border-b border-ink">
                             @foreach (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $dow)
-                                <div class="py-2 text-center text-[10px] font-bold uppercase tracking-label text-ink-700 sm:px-2.5 sm:text-start sm:text-[11px]">
+                                <div class="py-2 text-center text-[10px] font-semibold uppercase tracking-label text-ink-700 sm:px-2.5 sm:text-start sm:text-[11px]">
                                     {{ $dow }}
                                 </div>
                             @endforeach
@@ -229,7 +229,7 @@
                                         'bg-ink-100' => ! $cell['inMonth'],
                                     ])>
                                     <span @class([
-                                        'flex h-[22px] w-[22px] items-center justify-center text-xs',
+                                        'flex h-[22px] w-[22px] items-center justify-center rounded-lg text-xs',
                                         'bg-accent font-bold text-white' => $cell['isToday'],
                                         'font-semibold text-ink-800' => ! $cell['isToday'] && $cell['inMonth'],
                                         'font-medium text-ink-400' => ! $cell['isToday'] && ! $cell['inMonth'],
@@ -243,13 +243,13 @@
                                         <span class="hidden w-full flex-col gap-0.5 sm:flex">
                                             @foreach ($cell['appointments']->take(2) as $a)
                                                 <span @class([
-                                                    'block w-full truncate px-1 py-0.5 text-[10px] font-semibold',
+                                                    'block w-full truncate rounded-sm px-1 py-0.5 text-[10px] font-semibold',
                                                     'bg-clinic text-white' => ! $a->isCancelled(),
                                                     'bg-ink-200 text-ink-600 line-through' => $a->isCancelled(),
                                                 ])>{{ $a->starts_at->format('H:i') }} {{ $a->client?->name }}</span>
                                             @endforeach
                                             @if ($cell['appointments']->count() > 2)
-                                                <span class="px-0.5 text-[10px] font-bold text-clinic">
+                                                <span class="px-0.5 text-[10px] font-semibold text-clinic">
                                                     +{{ $cell['appointments']->count() - 2 }} more
                                                 </span>
                                             @endif
@@ -257,8 +257,8 @@
 
                                         {{-- Phone: a count is all that fits --}}
                                         <span class="flex items-center gap-1 sm:hidden">
-                                            <span class="h-1.5 w-1.5 bg-clinic"></span>
-                                            <span class="text-[10px] font-bold text-clinic-dark">{{ $active->count() }}</span>
+                                            <span class="h-1.5 w-1.5 rounded-full bg-clinic"></span>
+                                            <span class="text-[10px] font-semibold text-clinic-dark">{{ $active->count() }}</span>
                                         </span>
                                     @endif
                                 </button>
@@ -279,11 +279,11 @@
                         wire:key="next-{{ $appointment->id }}"
                         class="hps-row flex w-full items-start gap-3 p-4 text-start transition first:border-t-0 hover:bg-ink-100">
                         <span class="w-12 shrink-0">
-                            <span class="block text-sm font-extrabold leading-tight text-ink">{{ $appointment->starts_at->format('H:i') }}</span>
+                            <span class="block text-sm font-semibold leading-tight text-ink">{{ $appointment->starts_at->format('H:i') }}</span>
                             <span class="block text-[10px] font-semibold text-ink-500">{{ $appointment->ends_at->format('H:i') }}</span>
                         </span>
                         <span class="min-w-0">
-                            <span class="block truncate text-[13px] font-bold text-ink">{{ $appointment->client?->name }}</span>
+                            <span class="block truncate text-[13px] font-semibold text-ink">{{ $appointment->client?->name }}</span>
                             <span class="block truncate text-xs text-ink-700">{{ $appointment->service?->name }}</span>
                             <span class="block truncate text-xs text-ink-500">{{ $appointment->clinician?->name }}</span>
                         </span>
@@ -347,7 +347,7 @@
 
             @if ($selectedAppointment->has_clash)
                 <div class="border-b border-ink-200 bg-accent-100 p-3.5">
-                    <p class="text-xs font-bold text-accent-800">This session clashes with another commitment for the clinician.</p>
+                    <p class="text-xs font-semibold text-accent-800">This session clashes with another commitment for the clinician.</p>
                 </div>
             @endif
 
@@ -420,11 +420,11 @@
                     <x-input-label value="Client" />
 
                     @if ($creatingClient)
-                        <div class="mt-1 space-y-3 border border-ink-400 bg-surface p-3">
+                        <div class="mt-1 space-y-3 rounded-lg border border-ink-400 bg-surface p-3">
                             <div class="flex items-center justify-between">
                                 <span class="hps-label">New client</span>
                                 <button type="button" wire:click="cancelNewClient"
-                                    class="text-[11px] font-bold uppercase tracking-label text-accent-700 transition hover:text-accent">
+                                    class="text-[11px] font-semibold uppercase tracking-label text-accent-700 transition hover:text-accent">
                                     Pick existing
                                 </button>
                             </div>
@@ -459,15 +459,15 @@
                             </div>
                         </div>
                     @elseif ($selectedClient)
-                        <div class="mt-1 flex items-center justify-between border border-ink-400 bg-surface p-3">
+                        <div class="mt-1 flex items-center justify-between rounded-lg border border-ink-400 bg-surface p-3">
                             <div>
-                                <p class="text-sm font-bold text-ink">{{ $selectedClient->name }}</p>
+                                <p class="text-sm font-semibold text-ink">{{ $selectedClient->name }}</p>
                                 @if ($selectedClient->organization)
                                     <p class="text-xs text-ink-600">{{ $selectedClient->organization }}</p>
                                 @endif
                             </div>
                             <button type="button" wire:click="$set('clinic_client_id', null)"
-                                class="text-[11px] font-bold uppercase tracking-label text-ink-700 transition hover:text-ink">
+                                class="text-[11px] font-semibold uppercase tracking-label text-ink-700 transition hover:text-ink">
                                 Change
                             </button>
                         </div>
@@ -475,15 +475,15 @@
                         <div class="mt-1 space-y-2">
                             <input type="text" wire:model.live.debounce.300ms="clientSearch"
                                 placeholder="Search clients by name…"
-                                class="w-full border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-500 focus:border-accent focus:ring-0">
+                                class="w-full rounded-lg border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-500 focus:border-accent focus:ring-0">
 
                             @if ($clientResults->isNotEmpty())
-                                <div class="max-h-40 overflow-y-auto border border-ink-400">
+                                <div class="max-h-40 overflow-y-auto rounded-lg border border-ink-400">
                                     @foreach ($clientResults as $client)
                                         <button type="button" wire:click="selectClient({{ $client->id }})"
                                             wire:key="cr-{{ $client->id }}"
                                             class="block w-full border-b border-ink-200 p-2.5 text-start text-sm transition last:border-b-0 hover:bg-ink-100">
-                                            <span class="font-bold text-ink">{{ $client->name }}</span>
+                                            <span class="font-semibold text-ink">{{ $client->name }}</span>
                                             @if ($client->organization)
                                                 <span class="block text-xs text-ink-600">{{ $client->organization }}</span>
                                             @endif
@@ -495,7 +495,7 @@
                             @endif
 
                             <button type="button" wire:click="startNewClient"
-                                class="text-[11px] font-bold uppercase tracking-label text-accent-700 transition hover:text-accent">
+                                class="text-[11px] font-semibold uppercase tracking-label text-accent-700 transition hover:text-accent">
                                 + New client
                             </button>
                         </div>
@@ -508,7 +508,7 @@
                 <div>
                     <x-input-label for="service" value="Service" />
                     <select wire:model.live="clinic_service_id" id="service"
-                        class="mt-1 block w-full border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:ring-0">
+                        class="mt-1 block w-full rounded-lg border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:ring-0">
                         <option value="">Choose a service…</option>
                         @foreach ($services as $service)
                             <option value="{{ $service->id }}">
@@ -543,12 +543,12 @@
                     <x-input-label value="Assign clinician" />
 
                     @if (empty($clinicianAvailability))
-                        <p class="mt-1 border border-ink-400 bg-surface p-3 text-xs text-ink-600">
+                        <p class="mt-1 rounded-lg border border-ink-400 bg-surface p-3 text-xs text-ink-600">
                             No clinicians available. Set a date and time, and make sure at least one active user is
                             flagged as a clinician on the Users page.
                         </p>
                     @else
-                        <div class="mt-1 max-h-44 space-y-1 overflow-y-auto border border-ink-400 bg-surface p-2.5">
+                        <div class="mt-1 max-h-44 space-y-1 overflow-y-auto rounded-lg border border-ink-400 bg-surface p-2.5">
                             @foreach ($clinicianAvailability as $userId => $entry)
                                 <label wire:key="clin-{{ $userId }}"
                                     @class([
@@ -561,7 +561,7 @@
                                         class="border-ink-400 text-clinic focus:ring-clinic disabled:opacity-40">
                                     <span class="flex-1">{{ $entry['user']->name }}</span>
                                     @unless ($entry['free'])
-                                        <span class="text-[10px] font-bold uppercase tracking-label text-accent-700">Busy</span>
+                                        <span class="text-[10px] font-semibold uppercase tracking-label text-accent-700">Busy</span>
                                     @endunless
                                 </label>
                             @endforeach
@@ -580,8 +580,8 @@
                 @endphp
 
                 @if ($selectedService?->allows_recurrence && ! $editingId)
-                    <div class="border border-ink-400 bg-surface p-3">
-                        <label class="flex cursor-pointer items-center gap-2.5 text-sm font-bold text-ink">
+                    <div class="rounded-lg border border-ink-400 bg-surface p-3">
+                        <label class="flex cursor-pointer items-center gap-2.5 text-sm font-semibold text-ink">
                             <input type="checkbox" wire:model.live="isRecurring" class="border-ink-400 text-clinic focus:ring-clinic">
                             Repeat this appointment
                         </label>
@@ -591,7 +591,7 @@
                                 <div>
                                     <x-input-label for="recurrence" value="Repeats" />
                                     <select wire:model.live="recurrence" id="recurrence"
-                                        class="mt-1 block w-full border border-ink-400 bg-white px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:ring-0">
+                                        class="mt-1 block w-full rounded-lg border border-ink-400 bg-white px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:ring-0">
                                         <option value="daily">Daily</option>
                                         <option value="weekly">Weekly (selected weekdays)</option>
                                     </select>
@@ -602,7 +602,7 @@
                                         <x-input-label value="On weekdays" />
                                         <div class="mt-1 flex flex-wrap gap-1.5">
                                             @foreach ($weekdays as $value => $label)
-                                                <label class="flex cursor-pointer items-center gap-1.5 border border-ink-400 bg-white px-2.5 py-1.5 text-xs font-semibold transition has-[:checked]:border-clinic has-[:checked]:bg-clinic has-[:checked]:text-white">
+                                                <label class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink-400 bg-white px-2.5 py-1.5 text-xs font-semibold transition has-[:checked]:border-clinic has-[:checked]:bg-clinic has-[:checked]:text-white">
                                                     <input type="checkbox" wire:model="days_of_week" value="{{ $value }}" class="sr-only">
                                                     {{ $label }}
                                                 </label>
@@ -630,7 +630,7 @@
                 <div>
                     <x-input-label for="appt-note" value="Note" />
                     <textarea wire:model="note" id="appt-note" rows="2"
-                        class="mt-1 block w-full border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink caret-accent focus:border-accent focus:ring-0"></textarea>
+                        class="mt-1 block w-full rounded-lg border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink caret-accent focus:border-accent focus:ring-0"></textarea>
                     <x-input-error :messages="$errors->get('note')" class="mt-1" />
                 </div>
 

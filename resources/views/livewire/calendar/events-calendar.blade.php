@@ -7,25 +7,25 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <div class="flex">
-                    <button wire:click="previousMonth" class="flex h-10 w-10 items-center justify-center border border-ink-400 bg-white text-ink transition hover:bg-ink-100" aria-label="Previous month">
+                    <button wire:click="previousMonth" class="flex h-11 w-11 items-center justify-center rounded-s-lg border border-ink-400 sm:h-10 sm:w-10 bg-white text-ink transition hover:bg-ink-100" aria-label="Previous month">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
                     </button>
-                    <button wire:click="nextMonth" class="flex h-10 w-10 items-center justify-center border border-l-0 border-ink-400 bg-white text-ink transition hover:bg-ink-100" aria-label="Next month">
+                    <button wire:click="nextMonth" class="flex h-11 w-11 items-center justify-center rounded-e-lg border border-l-0 border-ink-400 sm:h-10 sm:w-10 bg-white text-ink transition hover:bg-ink-100" aria-label="Next month">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
                     </button>
                 </div>
 
-                <h2 class="text-lg font-extrabold tracking-tight text-ink sm:text-2xl">{{ $monthLabel }}</h2>
+                <h2 class="text-lg font-bold tracking-tight text-ink sm:text-2xl">{{ $monthLabel }}</h2>
 
-                <button wire:click="goToday" class="border border-ink-400 bg-white px-3 py-2 text-[11px] font-extrabold uppercase tracking-label text-ink-800 transition hover:bg-ink-100">
+                <button wire:click="goToday" class="min-h-11 rounded-lg border border-ink-400 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-label text-ink-800 transition hover:bg-ink-100 sm:min-h-0">
                     Today
                 </button>
             </div>
 
             <div class="flex items-center gap-5">
                 <div class="flex items-center gap-4 text-xs font-semibold text-ink-800">
-                    <span class="flex items-center gap-2"><span class="h-3 w-3 bg-ink-900"></span> Internal</span>
-                    <span class="flex items-center gap-2"><span class="h-3 w-3 bg-accent"></span> External</span>
+                    <span class="flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-ink-900"></span> Internal</span>
+                    <span class="flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-accent"></span> External</span>
                 </div>
 
                 @can('create', App\Models\Event::class)
@@ -42,7 +42,7 @@
                 <div class="hps-panel">
                     <div class="grid grid-cols-7 border-b border-ink">
                         @foreach (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $dow)
-                            <div class="py-2 text-center text-[10px] font-bold uppercase tracking-label text-ink-700 sm:px-2.5 sm:text-start sm:text-[11px]">
+                            <div class="py-2 text-center text-[10px] font-semibold uppercase tracking-label text-ink-700 sm:px-2.5 sm:text-start sm:text-[11px]">
                                 {{ $dow }}
                             </div>
                         @endforeach
@@ -68,7 +68,7 @@
                                         'bg-accent-100' => $isSelected,
                                     ])>
                                     <span @class([
-                                        'flex h-6 w-6 items-center justify-center text-[13px]',
+                                        'flex h-6 w-6 items-center justify-center rounded-lg text-[13px]',
                                         'bg-accent font-bold text-white' => $day['isToday'],
                                         'font-semibold text-ink-900' => ! $day['isToday'] && $day['inMonth'],
                                         'font-medium text-ink-400' => ! $day['isToday'] && ! $day['inMonth'],
@@ -88,7 +88,7 @@
                                 {{-- Desktop: day number with full event pills --}}
                                 <div class="hidden min-h-28 flex-col gap-1 p-2 sm:flex">
                                     <span @class([
-                                        'flex h-[22px] w-[22px] items-center justify-center text-xs',
+                                        'flex h-[22px] w-[22px] items-center justify-center rounded-lg text-xs',
                                         'bg-accent font-bold text-white' => $day['isToday'],
                                         'font-semibold text-ink-800' => ! $day['isToday'] && $day['inMonth'],
                                         'font-medium text-ink-400' => ! $day['isToday'] && ! $day['inMonth'],
@@ -99,7 +99,7 @@
                                             x-show="expanded || {{ $index }} < 3"
                                             @if ($index >= 3) x-cloak @endif
                                             @class([
-                                                'block w-full truncate px-1.5 py-1 text-start text-[11px] font-semibold transition',
+                                                'block w-full truncate rounded-lg px-1.5 py-1 text-start text-[11px] font-semibold transition',
                                                 'bg-ink-900 text-ink-100 hover:bg-ink' => $event->type === App\Enums\EventType::Internal,
                                                 'bg-accent text-white hover:bg-accent-600' => $event->type === App\Enums\EventType::External,
                                             ])
@@ -110,11 +110,11 @@
 
                                     @if ($day['events']->count() > 3)
                                         <button x-show="!expanded" @click="expanded = true"
-                                            class="block w-full px-0.5 text-start text-[11px] font-bold text-accent-700 transition hover:text-accent">
+                                            class="block w-full px-0.5 text-start text-[11px] font-semibold text-accent-700 transition hover:text-accent">
                                             +{{ $day['events']->count() - 3 }} more
                                         </button>
                                         <button x-show="expanded" x-cloak @click="expanded = false"
-                                            class="block w-full px-0.5 text-start text-[11px] font-bold text-accent-700 transition hover:text-accent">
+                                            class="block w-full px-0.5 text-start text-[11px] font-semibold text-accent-700 transition hover:text-accent">
                                             Show less
                                         </button>
                                     @endif
@@ -137,12 +137,12 @@
                         <button wire:click="selectEvent({{ $event->id }})" wire:key="agenda-{{ $event->id }}"
                             class="hps-row flex w-full items-start gap-2.5 p-3 text-start transition first:border-t-0 hover:bg-ink-100">
                             <span @class([
-                                'w-1 shrink-0 self-stretch',
+                                'w-1 shrink-0 self-stretch rounded-full',
                                 'bg-ink-900' => $event->type === App\Enums\EventType::Internal,
                                 'bg-accent' => $event->type === App\Enums\EventType::External,
                             ])></span>
                             <span class="min-w-0 flex-1">
-                                <span class="block text-sm font-bold text-ink">{{ $event->name }}</span>
+                                <span class="block text-sm font-semibold text-ink">{{ $event->name }}</span>
                                 <span class="mt-0.5 block text-xs text-ink-700">{{ $event->starts_at->format('g:ia') }} – {{ $event->ends_at->format('g:ia') }}</span>
                                 @if ($event->location)
                                     <span class="block text-xs text-ink-500">{{ $event->location }}</span>
@@ -166,8 +166,8 @@
                     <button wire:click="selectEvent({{ $event->id }})" wire:key="upcoming-{{ $event->id }}"
                         class="hps-row flex w-full items-start gap-3 p-4 text-start transition first:border-t-0 hover:bg-ink-100">
                         <span class="w-10 shrink-0">
-                            <span class="block text-[10px] font-bold uppercase tracking-label text-ink-500">{{ $event->starts_at->format('M') }}</span>
-                            <span class="block text-xl font-extrabold leading-tight text-ink">{{ $event->starts_at->format('j') }}</span>
+                            <span class="block text-[10px] font-semibold uppercase tracking-label text-ink-500">{{ $event->starts_at->format('M') }}</span>
+                            <span class="block text-xl font-bold leading-tight text-ink">{{ $event->starts_at->format('j') }}</span>
                         </span>
                         <span class="min-w-0">
                             <span class="flex items-center gap-2">
@@ -176,7 +176,7 @@
                                     'bg-ink-900' => $event->type === App\Enums\EventType::Internal,
                                     'bg-accent' => $event->type === App\Enums\EventType::External,
                                 ])></span>
-                                <span class="truncate text-[13px] font-bold text-ink">{{ $event->name }}</span>
+                                <span class="truncate text-[13px] font-semibold text-ink">{{ $event->name }}</span>
                             </span>
                             <span class="mt-0.5 block text-xs text-ink-700">{{ $event->starts_at->format('D j M, g:ia') }}</span>
                         </span>
@@ -266,13 +266,13 @@
                 <div>
                     <x-input-label value="Type" />
                     <div class="mt-1 flex">
-                        <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 border border-ink-400 py-2.5 text-[13px] font-semibold transition has-[:checked]:bg-ink-900 has-[:checked]:text-ink-100">
+                        <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-s-lg border border-ink-400 py-2.5 text-[13px] font-semibold transition has-[:checked]:bg-ink-900 has-[:checked]:text-ink-100">
                             <input type="radio" wire:model="type" value="internal" class="sr-only">
-                            <span class="h-2.5 w-2.5 bg-ink-900"></span> Internal
+                            <span class="h-2.5 w-2.5 rounded-sm bg-ink-900"></span> Internal
                         </label>
-                        <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 border border-l-0 border-ink-400 py-2.5 text-[13px] font-semibold transition has-[:checked]:bg-accent has-[:checked]:text-white">
+                        <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-e-lg border border-l-0 border-ink-400 py-2.5 text-[13px] font-semibold transition has-[:checked]:bg-accent has-[:checked]:text-white">
                             <input type="radio" wire:model="type" value="external" class="sr-only">
-                            <span class="h-2.5 w-2.5 bg-accent"></span> External
+                            <span class="h-2.5 w-2.5 rounded-sm bg-accent"></span> External
                         </label>
                     </div>
                     <x-input-error :messages="$errors->get('type')" class="mt-1" />
@@ -300,13 +300,13 @@
                 <div>
                     <x-input-label for="details" value="Details" />
                     <textarea wire:model="details" id="details" rows="3"
-                        class="mt-1 block w-full border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink caret-accent focus:border-accent focus:ring-0"></textarea>
+                        class="mt-1 block w-full rounded-lg border border-ink-400 bg-surface px-2.5 py-1.5 text-sm text-ink caret-accent focus:border-accent focus:ring-0"></textarea>
                     <x-input-error :messages="$errors->get('details')" class="mt-1" />
                 </div>
 
                 <div>
                     <x-input-label value="Assign staff" />
-                    <div class="mt-1 max-h-40 space-y-1 overflow-y-auto border border-ink-400 bg-surface p-2.5">
+                    <div class="mt-1 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-ink-400 bg-surface p-2.5">
                         @foreach ($activeStaff as $member)
                             <label class="flex cursor-pointer items-center gap-2 text-sm text-ink-800">
                                 <input type="checkbox" wire:model="staffIds" value="{{ $member->id }}"

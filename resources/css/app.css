@@ -8,8 +8,9 @@
         -webkit-font-smoothing: antialiased;
     }
 
+    /* Spec caps every weight at 700 — headings are bold, never heavier. */
     h1, h2, h3, h4, h5, h6 {
-        @apply font-extrabold tracking-tight leading-tight;
+        @apply font-bold tracking-tight leading-tight;
     }
 
     /* Alpine cloaks un-initialised elements; without this they flash on load. */
@@ -37,14 +38,18 @@
     }
 
     /* Small uppercase letterspaced label — the system's workhorse for section
-       headings, table headers, and field labels. */
+       headings, table headers, and field labels. 11px/600 per the spec. */
     .hps-label {
-        @apply text-[11px] font-bold uppercase tracking-label text-ink-500;
+        @apply text-[11px] font-semibold uppercase tracking-label text-ink-500;
     }
 
-    /* A panel: white on the paper ground with a hairline border. */
+    /*
+     * A panel: white on the paper ground, hairline border, 12px corners.
+     * `overflow-hidden` makes children (table headers, first/last list rows,
+     * timeline blocks) clip to the rounded corners instead of poking past them.
+     */
     .hps-panel {
-        @apply border border-ink-400 bg-white;
+        @apply overflow-hidden rounded-xl border border-ink-400 bg-white;
     }
 
     /* Section header inside a panel — heavy ink rule underneath. */
@@ -57,8 +62,29 @@
         @apply border-t border-ink-200;
     }
 
-    /* Staff chips in the detail sheets. */
+    /* Staff chips in the detail sheets — 8px corners. */
     .hps-chip {
-        @apply border border-ink-400 px-2 py-1.5 text-xs font-semibold text-ink-900;
+        @apply rounded-lg border border-ink-400 px-2 py-1.5 text-xs font-semibold text-ink-900;
+    }
+
+    /*
+     * Segmented control (day/month toggle, studio filter, My Appointments
+     * tabs): the group rounds only its outer edge, so the shared inner
+     * borders stay flush rather than showing a double curve.
+     */
+    .hps-segment {
+        @apply flex overflow-hidden rounded-lg border border-ink-400;
+    }
+
+    /*
+     * Touch targets — the spec puts a 44px floor on every mobile control.
+     * Segment options share a parent, so the floor is applied here rather
+     * than repeated at each call site. Desktop keeps its tighter metrics.
+     */
+    @media (max-width: 639px) {
+        .hps-segment > button,
+        .hps-segment > label {
+            min-height: 44px;
+        }
     }
 }

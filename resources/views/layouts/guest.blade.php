@@ -9,7 +9,7 @@
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=archivo:400,500,600,700,800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=source-sans-3:400,500,600,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -20,11 +20,11 @@
                 <a href="/" wire:navigate>
                     <x-application-logo class="h-20 w-20 object-contain" />
                 </a>
-                <h1 class="mt-3 text-2xl font-extrabold tracking-tight text-ink">HPS Operations</h1>
+                <h1 class="mt-3 text-2xl font-bold tracking-tight text-ink">HPS Operations</h1>
                 <p class="hps-label mt-1">High-Performance Sports</p>
             </div>
 
-            <div class="mt-8 w-full border border-ink bg-white p-6 shadow-md sm:max-w-md">
+            <div class="mt-8 w-full rounded-xl border border-ink bg-white p-6 shadow-md sm:max-w-md">
                 {{ $slot }}
             </div>
 

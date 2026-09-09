@@ -4,23 +4,23 @@
     <div class="mx-auto max-w-3xl space-y-4 px-3 sm:px-6 lg:px-8">
 
         <div class="flex items-center justify-between gap-3">
-            <h2 class="text-xl font-extrabold tracking-tight text-ink sm:text-2xl">My Appointments</h2>
+            <h2 class="text-xl font-bold tracking-tight text-ink sm:text-2xl">My Appointments</h2>
         </div>
 
         <x-flash />
 
         {{-- Filters --}}
-        <div class="flex border border-ink-400">
+        <div class="hps-segment">
             <button wire:click="setFilter('upcoming')"
                 @class([
-                    'flex-1 py-2.5 text-[11px] font-extrabold uppercase tracking-label transition',
+                    'flex-1 py-2.5 text-[11px] font-semibold uppercase tracking-label transition',
                     'bg-ink text-ink-100' => $filter === 'upcoming',
                     'bg-white text-ink-800 hover:bg-ink-100' => $filter !== 'upcoming',
                 ])>Upcoming</button>
 
             <button wire:click="setFilter('awaiting')"
                 @class([
-                    'flex flex-1 items-center justify-center gap-1.5 border-l border-ink-400 py-2.5 text-[11px] font-extrabold uppercase tracking-label transition',
+                    'flex flex-1 items-center justify-center gap-1.5 border-l border-ink-400 py-2.5 text-[11px] font-semibold uppercase tracking-label transition',
                     'bg-ink text-ink-100' => $filter === 'awaiting',
                     'bg-white text-ink-800 hover:bg-ink-100' => $filter !== 'awaiting',
                 ])>
@@ -32,7 +32,7 @@
 
             <button wire:click="setFilter('past')"
                 @class([
-                    'flex-1 border-l border-ink-400 py-2.5 text-[11px] font-extrabold uppercase tracking-label transition',
+                    'flex-1 border-l border-ink-400 py-2.5 text-[11px] font-semibold uppercase tracking-label transition',
                     'bg-ink text-ink-100' => $filter === 'past',
                     'bg-white text-ink-800 hover:bg-ink-100' => $filter !== 'past',
                 ])>Past</button>
@@ -47,16 +47,16 @@
                         'bg-accent-100/40' => $highlightId === $appointment->id,
                     ])>
                     <span class="w-14 shrink-0">
-                        <span class="block text-[10px] font-bold uppercase tracking-label text-ink-500">
+                        <span class="block text-[10px] font-semibold uppercase tracking-label text-ink-500">
                             {{ $appointment->starts_at->format('D j M') }}
                         </span>
-                        <span class="block text-base font-extrabold leading-tight text-ink">
+                        <span class="block text-base font-bold leading-tight text-ink">
                             {{ $appointment->starts_at->format('H:i') }}
                         </span>
                     </span>
 
                     <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-bold text-ink">{{ $appointment->client?->name }}</span>
+                        <span class="block truncate text-sm font-semibold text-ink">{{ $appointment->client?->name }}</span>
                         <span class="block truncate text-xs text-ink-700">{{ $appointment->service?->name }}</span>
                         <span class="block text-xs text-ink-500">
                             {{ $appointment->starts_at->format('g:ia') }} – {{ $appointment->ends_at->format('g:ia') }}

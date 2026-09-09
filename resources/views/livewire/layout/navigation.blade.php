@@ -25,9 +25,9 @@ new class extends Component
             <div class="flex min-w-0">
                 <!-- Logo + app heading -->
                 <div class="flex shrink-0 items-center">
-                    <a href="{{ route('calendar') }}" wire:navigate class="flex items-center gap-2.5">
+                    <a href="{{ route('calendar') }}" wire:navigate class="flex items-center gap-2.5 py-1.5">
                         <x-application-logo class="block h-8 w-auto object-contain" />
-                        <span class="whitespace-nowrap text-[15px] font-extrabold tracking-tight text-ink sm:text-[17px]">HPS Operations</span>
+                        <span class="whitespace-nowrap text-[15px] font-bold tracking-tight text-ink sm:text-[17px]">HPS Operations</span>
                     </a>
                 </div>
 
@@ -102,7 +102,7 @@ new class extends Component
             <!-- Hamburger -->
             <div class="-me-2 flex items-center gap-2 sm:hidden">
                 <livewire:notifications.notification-bell />
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 text-ink transition hover:bg-ink-100 focus:outline-none" aria-label="Menu">
+                <button @click="open = ! open" class="inline-flex items-center justify-center p-2.5 text-ink transition hover:bg-ink-100 focus:outline-none sm:p-2" aria-label="Menu">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                         <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

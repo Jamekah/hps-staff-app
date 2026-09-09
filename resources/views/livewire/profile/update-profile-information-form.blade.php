@@ -64,7 +64,7 @@ new class extends Component
 
 <section>
     <header>
-        <h2 class="text-lg font-extrabold tracking-tight text-ink">
+        <h2 class="text-lg font-bold tracking-tight text-ink">
             {{ __('Profile Information') }}
         </h2>
 

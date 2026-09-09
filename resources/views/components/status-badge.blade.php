@@ -11,6 +11,6 @@
     };
 @endphp
 
-<span {{ $attributes->merge(['class' => "inline-flex px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-label {$classes}"]) }}>
+<span {{ $attributes->merge(['class' => "inline-flex rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-label {$classes}"]) }}>
     {{ $status->label() }}
 </span>
