@@ -574,16 +574,45 @@ the log mailer.
   announcement publish → queue worker → bell count 1.
 - Capacitor Android app needs no change (remote-URL mode).
 
+### Also verified on MariaDB (2026-11-17, second pass)
+The first pass ran on SQLite because XAMPP's MariaDB was unreachable. That was
+resolved and **every runtime check was re-run against real MariaDB 10.4.32**:
+
+- **182/182 tests pass against MariaDB** (not just SQLite), run on a dedicated
+  throwaway database.
+- `migrate:status` against the **real** `hps_staff_app`: all 13 migrations show
+  `Ran`, nothing pending — the upgrade needs no schema change.
+- Migrations + both seeders run clean on MariaDB.
+- All four scheduled commands exit 0; FCM round-trip prunes an invalid token and
+  stores the in-app notification.
+- UI pass repeated: weekly gym recurrence (present Tue/Thu, absent Wed), SM
+  Clinic clinician `disabled` by the cross-module gym clash, announcement →
+  queue worker → bell count 1 (no failed jobs), upload + download returning
+  `filename="MariaDB Check Document.pdf"`.
+- `days_of_week` round-trips correctly as `[2,4]`. On MariaDB 10.4 the JSON
+  column is stored as `longtext`, and occurrence expansion happens in PHP (per
+  spec, computed at display time) — there is **no** dependency on MySQL JSON
+  functions, which is why SQLite and MariaDB behave identically here.
+- The L13 joined-`DELETE` change is not reachable: the app issues no `DELETE`
+  with `JOIN`/`ORDER BY`/`LIMIT`.
+
+All write tests ran on temporary databases (`hps_staff_app_l13check`,
+`hps_staff_app_l13test`), both dropped afterwards. The real `hps_staff_app` was
+only ever read.
+
+### Local environment note (not an app issue)
+XAMPP's MariaDB cannot bind port 3306 because the **MySQL 8.4 Windows service
+(`MYSQL84`, auto-start) owns it**. For this verification MariaDB was started
+manually on **port 3307**; that is temporary and will not survive a reboot.
+A permanent fix is an environment decision — either stop/disable `MYSQL84` so
+XAMPP gets 3306 back as designed, or move XAMPP to 3307 permanently and update
+`DB_PORT` in this project *and* the other local projects that use MariaDB
+(`nhc_portal`, `periodization_planner`, `renttrack_png`). Nothing was changed
+permanently: `.env`, `my.ini` and the MySQL services were all left as found.
+
 ### Not verified
-- **Against MySQL/MariaDB.** XAMPP's MariaDB is not reachable on this machine:
-  port 3306 is held by an Oracle MySQL 8 instance (it also binds 33060) whose
-  root password is not the empty one in `.env`, and XAMPP's own `mysqld` holds no
-  TCP port. All runtime checks above therefore ran on a throwaway **SQLite**
-  database. The test suite has always run on SQLite, so this matches CI, but it
-  means MySQL-specific behaviour (JSON column handling for `days_of_week`, the
-  new L13 joined-`DELETE` compilation) was **not** exercised. Worth a careful
-  look on the first Laravel Cloud deploy.
 - The Android APK was not rebuilt or re-tested (not required — remote-URL mode).
+- Nothing was deployed; Laravel Cloud still runs Laravel 12 on its own MySQL.
 
 ### Optional follow-ups (not required by Laravel 13)
 - `livewire/livewire` 3.8.11 → 4.x — a major migration touching every page.
