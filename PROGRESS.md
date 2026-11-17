@@ -12,6 +12,7 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 | 3. Notifications | In-app feed, FCM, device tokens, scheduled jobs | ✅ Live in production |
 | 4. Android | Capacitor wrapper, FCM native, APK build | ✅ Installed & verified on a physical phone |
 | 5. SM Clinic | Sports medicine bookings, clash engine, clinician views | ✅ Live in production |
+| Laravel 13 upgrade | Framework 12 → 13 (PHP 8.3+), no behaviour change | ⏳ On branch `upgrade-laravel-13`, awaiting review |
 
 **Everything below is verified working in production as of 2026-07-18.** Cloud
 infrastructure configured by Jason: MySQL, object-storage bucket, queue worker,
@@ -467,3 +468,156 @@ tighter 34–36px metrics via `sm:` overrides.
 The clinic's plum accent is kept as-is. It post-dates this spec, which lists
 colours only for events and studios; plum keeps the "no colour means two
 things" rule intact.
+
+---
+
+## Laravel 13 upgrade ⏳ (2026-11-17) — on branch `upgrade-laravel-13`, not merged
+
+Framework upgrade only, per `../LARAVEL-13-UPGRADE-BRIEF.md`. **No feature, UI or
+behaviour change.** Laravel 12 bug fixes ended 13 Aug 2026 and security fixes end
+24 Feb 2027; Laravel 13 needs PHP 8.3+.
+
+Awaiting Jason's local review. **Laravel Cloud must be set to PHP 8.3+ before
+this is deployed** — Laravel 13 will not boot on 8.2.
+
+### Package versions (before → after)
+
+| Package | Before | After |
+|---|---|---|
+| php (constraint) | ^8.2 | **^8.3** |
+| laravel/framework | 12.64.0 | **13.42.0** |
+| laravel/tinker | 2.11.1 | **3.1.0** |
+| livewire/livewire | 3.8.2 | **3.8.11** (stayed on Livewire 3) |
+| livewire/volt | 1.10.5 | **1.11.2** |
+| kreait/laravel-firebase | 6.2.0 | **7.2.1** |
+| league/flysystem-aws-s3-v3 | 3.35.2 | 3.35.3 |
+| laravel/breeze (dev) | 2.4.2 | 2.4.2 (kept — resolves fine on 13) |
+| phpunit/phpunit (dev) | 11.5.56 | **12.5.44** |
+| laravel/pint (dev) | 1.29.3 | 1.32.3 |
+| laravel/pail (dev) | 1.2.7 | 1.3.0 |
+| laravel/sail (dev) | 1.63.0 | 1.70.0 |
+| nunomaduro/collision (dev) | 8.9.5 | 8.9.6 |
+| mockery/mockery (dev) | 1.6.12 | 1.6.15 |
+| fakerphp/faker (dev) | 1.24.1 | 1.24.1 |
+
+Transitively: Symfony 7.4 → **8.1**, Carbon 3.13.1 → 3.15.1, aws-sdk-php 3.388.7
+→ 3.404.0. `composer audit`: **no advisories**.
+
+**Livewire 3 was kept.** Composer resolves Laravel 13 with Livewire 3.8.11, so the
+brief's stop condition (a forced Livewire 4 migration) never triggered.
+
+**Nothing was removed.** Breeze resolves against Laravel 13, so it stayed as a dev
+dependency.
+
+### Application code changed: none
+`composer.json` and `composer.lock` are the only modified files. The 12 → 13
+upgrade guide was worked through item by item and **none of its breaking changes
+touch this app**: no `VerifyCsrfToken`/`PreventRequestForgery` references, no
+`upsert()`, no `JobAttempted`/`QueueBusy` listeners, no manager `extend()`
+callbacks, no `pagination::default` overrides, no `Str` factory overrides, no
+custom `array_first`/`array_last`, no custom cache/queue/dispatcher drivers.
+
+Two new Laravel 13 config keys were **deliberately left unset**, because the
+framework defaults match the old Laravel 12 behaviour and the brief forbids
+behaviour changes:
+- `session.serialization` — framework default is `php` (the L13 *skeleton* sets
+  `json`). Leaving it unset **keeps existing sessions valid**, so nobody is
+  logged out by the deploy. Switching to `json` is more secure but invalidates
+  every active session; left as an optional follow-up.
+- `cache.serializable_classes` — framework default is `null` (unrestricted, as
+  before). Moot here regardless: the app only ever caches booleans (the
+  notification dedupe keys).
+
+The L13 "cache prefix / session cookie name" rename is also a no-op here —
+`config/cache.php`, `config/database.php` and `config/session.php` have used the
+hyphenated form since Phase 1, so no prefix or cookie name changes on deploy.
+
+### Customisations confirmed intact
+No config file was touched, so all of these survive verbatim: the
+`APP_TIMEZONE` / `Pacific/Port_Moresby` default in `config/app.php` (the stock
+skeleton still hardcodes UTC), PNG wall-clock datetime storage,
+`config/superadmin.php`, the S3 disk, the database queue, Livewire's 20MB
+temporary-upload rule, the `/firebase-messaging-sw.js` route, the
+`EnsureUserIsActive` global web middleware, and all four Port-Moresby scheduler
+entries.
+
+`bootstrap/app.php` needed no change. The only L13 skeleton delta is an
+exception JSON-rendering default for `api/*` routes, which this web-only app
+has no use for.
+
+### One user-visible change (framework default, unavoidable)
+The password-reset email subject is now **"Reset your password"** (was "Reset
+Password Notification"). This is Laravel 13's new default wording. Confirmed in
+the log mailer.
+
+### Verified
+- **182/182 tests pass** — the same 182 as on main, with no test changes.
+  Also run as a baseline on PHP 8.4 *before* touching dependencies (182 passed),
+  which rules out PHP-version-only failures.
+- `php artisan --version` → **Laravel Framework 13.42.0** on **PHP 8.4.26**.
+- `npm run build` succeeds (vite 7.3.6); `laravel-vite-plugin` needed no change.
+- Migrations and both seeders run clean.
+- All four scheduled commands run manually, exit 0: `events:notify-today`,
+  `gym:notify-upcoming`, `clinic:notify-upcoming`, `clinic:prompt-status`.
+- **Real FCM round-trip**: a deliberately invalid token was pushed through the
+  live FCM API; FCM reported it unregistered and `FcmChannel` pruned the row.
+  No errors logged, and the matching in-app (database) notification was stored.
+- Manual UI pass, all on Laravel 13: login → calendar, logout, full password
+  reset round-trip via the log mailer (link → new password → "Your password has
+  been reset"); event create + edit (14:00 entered displays as 2:00pm — no
+  timezone drift); weekly recurring gym session create + whole-series edit, with
+  occurrences correctly present Tue/Thu and absent Wed; SM Clinic booking with a
+  clinician **greyed out and `disabled`** by a genuine cross-module clash (the
+  computed gym occurrence, via `StaffAvailability`); file upload through the real
+  Livewire path and download returning
+  `Content-Disposition: attachment; filename="HPS Training Plan 2027.pdf"`;
+  announcement publish → queue worker → bell count 1.
+- Capacitor Android app needs no change (remote-URL mode).
+
+### Also verified on MariaDB (2026-11-17, second pass)
+The first pass ran on SQLite because XAMPP's MariaDB was unreachable. That was
+resolved and **every runtime check was re-run against real MariaDB 10.4.32**:
+
+- **182/182 tests pass against MariaDB** (not just SQLite), run on a dedicated
+  throwaway database.
+- `migrate:status` against the **real** `hps_staff_app`: all 13 migrations show
+  `Ran`, nothing pending — the upgrade needs no schema change.
+- Migrations + both seeders run clean on MariaDB.
+- All four scheduled commands exit 0; FCM round-trip prunes an invalid token and
+  stores the in-app notification.
+- UI pass repeated: weekly gym recurrence (present Tue/Thu, absent Wed), SM
+  Clinic clinician `disabled` by the cross-module gym clash, announcement →
+  queue worker → bell count 1 (no failed jobs), upload + download returning
+  `filename="MariaDB Check Document.pdf"`.
+- `days_of_week` round-trips correctly as `[2,4]`. On MariaDB 10.4 the JSON
+  column is stored as `longtext`, and occurrence expansion happens in PHP (per
+  spec, computed at display time) — there is **no** dependency on MySQL JSON
+  functions, which is why SQLite and MariaDB behave identically here.
+- The L13 joined-`DELETE` change is not reachable: the app issues no `DELETE`
+  with `JOIN`/`ORDER BY`/`LIMIT`.
+
+All write tests ran on temporary databases (`hps_staff_app_l13check`,
+`hps_staff_app_l13test`), both dropped afterwards. The real `hps_staff_app` was
+only ever read.
+
+### Local environment note (not an app issue)
+XAMPP's MariaDB cannot bind port 3306 because the **MySQL 8.4 Windows service
+(`MYSQL84`, auto-start) owns it**. For this verification MariaDB was started
+manually on **port 3307**; that is temporary and will not survive a reboot.
+A permanent fix is an environment decision — either stop/disable `MYSQL84` so
+XAMPP gets 3306 back as designed, or move XAMPP to 3307 permanently and update
+`DB_PORT` in this project *and* the other local projects that use MariaDB
+(`nhc_portal`, `periodization_planner`, `renttrack_png`). Nothing was changed
+permanently: `.env`, `my.ini` and the MySQL services were all left as found.
+
+### Not verified
+- The Android APK was not rebuilt or re-tested (not required — remote-URL mode).
+- Nothing was deployed; Laravel Cloud still runs Laravel 12 on its own MySQL.
+
+### Optional follow-ups (not required by Laravel 13)
+- `livewire/livewire` 3.8.11 → 4.x — a major migration touching every page.
+- `phpunit/phpunit` 12.5.44 → 13.x — Laravel 13's skeleton targets `^12.5`.
+- `session.serialization` → `json` for gadget-chain hardening (logs everyone out once).
+- The L13 skeleton drops `laravel/sail` and adds `laravel/pao`; our `dev` composer
+  script also still uses the explicit `concurrently` form rather than `artisan dev`.
+  All left alone deliberately — none affects runtime.
