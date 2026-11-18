@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -151,5 +153,49 @@ class User extends Authenticatable
     public function isSuperAdmin(): bool
     {
         return $this->role === Role::SuperAdmin;
+    }
+
+    /**
+     * What stands in the way of deleting this user, in plain words.
+     *
+     * Deletion is permanent — nothing in this app is soft-deleted. Their own
+     * assignments, device tokens and leave records cascade away with them, but
+     * anything they *authored* does not: those columns restrict, so the
+     * database refuses the delete outright. Checking first turns a raw foreign
+     * key violation into a sentence the super admin can act on, and the answer
+     * is almost always "deactivate instead".
+     *
+     * Keep this list in step with every restricting FK that points at `users`
+     * (see the create migrations for events, gym schedules, announcements,
+     * documents and the clinic tables).
+     *
+     * @return array<int, string> e.g. ["3 events", "1 announcement"]
+     */
+    public function deletionBlockers(): array
+    {
+        $counts = [
+            'event' => DB::table('events')->where('created_by', $this->id)->count(),
+            'gym schedule' => DB::table('gym_schedules')->where('created_by', $this->id)->count(),
+            'announcement' => DB::table('announcements')->where('created_by', $this->id)->count(),
+            'document' => DB::table('documents')->where('uploaded_by', $this->id)->count(),
+            'clinic appointment' => DB::table('clinic_appointments')
+                ->where('assigned_staff_id', $this->id)
+                ->orWhere('booked_by', $this->id)
+                ->count(),
+            'clinic series' => DB::table('clinic_appointment_series')
+                ->where('assigned_staff_id', $this->id)
+                ->orWhere('booked_by', $this->id)
+                ->count(),
+        ];
+
+        $blockers = [];
+
+        foreach ($counts as $noun => $count) {
+            if ($count > 0) {
+                $blockers[] = $count.' '.Str::plural($noun, $count);
+            }
+        }
+
+        return $blockers;
     }
 }

@@ -15,9 +15,13 @@
                 <livewire:profile.update-password-form />
             </div>
 
-            <div class="hps-panel p-4 sm:p-6">
-                <livewire:profile.delete-user-form />
-            </div>
+            {{--
+                No "Delete account" here. Accounts are the super admin's to
+                remove, and an admin may not even delete someone who holds a
+                login — self-deletion would have walked straight past both
+                rules, permanently and without warning. Leaving is handled by
+                the super admin deactivating the account.
+            --}}
         </div>
     </div>
 </x-app-layout>

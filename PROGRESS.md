@@ -1128,3 +1128,77 @@ Post-deploy checks against production:
 Not verified: no real setup email has been sent from production yet. The next
 user added — or a Send invite — is the first live test of the new copy. Mail
 still goes out over Gmail SMTP, unchanged by this work.
+
+## User deletion: a readable refusal, and no self-delete (2026-11-18)
+
+### What deletion actually did
+
+Asked to confirm whether deleting a user is soft or hard, the answer turned out
+to be neither clean nor safe:
+
+**Nothing in this app is soft-deleted.** No `SoftDeletes` trait, no
+`deleted_at` column, no restore. A deleted user is gone.
+
+For a plain staff member that works as intended — device tokens, event and gym
+assignments and their own leave records all cascade away. Leave they *recorded
+for someone else* survives with `recorded_by` nulled, which is right. Their
+in-app notifications are left orphaned: `notifications` is polymorphic and has
+no foreign key, so nothing sweeps them.
+
+**But anyone who had authored anything could not be deleted at all.**
+`created_by` on events, gym schedules and announcements, `uploaded_by` on
+documents, and `assigned_staff_id` / `booked_by` on both clinic tables are all
+`constrained('users')` with no `onDelete` rule — RESTRICT. A probe confirmed
+it: deleting an admin who had posted one announcement threw
+`QueryException: FOREIGN KEY constraint failed`, the row stayed, and
+`ManageUsers::delete()` had no try/catch, so it surfaced as a raw 500. With
+`APP_DEBUG` off in production that is a blank error page and no explanation.
+
+In practice every admin and super admin was undeletable, and the failure looked
+like a bug rather than a rule.
+
+### The refusal, in words
+
+`User::deletionBlockers()` counts the content that restricts, and
+`ManageUsers::delete()` checks it before trying:
+
+> Kila Morea cannot be deleted: they created 3 events and 1 announcement that
+> would be lost. Deactivate them instead — that blocks their login and
+> notifications, and keeps the record.
+
+A `QueryException` catch sits behind it as a backstop, in case a restricting FK
+is added later and the list is not updated. **Keep `deletionBlockers()` in step
+with every restricting FK pointing at `users`.**
+
+Deactivating was already the right answer for almost every real case: it stops
+the login, stops notifications, and keeps the history intact. The message now
+says so.
+
+### Self-deletion removed
+
+`resources/views/profile.blade.php` still carried Breeze's stock **Delete
+account** form, so any staff member could permanently erase themselves with
+nothing but their password — past the rule that only the super admin deletes
+accounts, and past the rule that an admin may never delete someone who holds a
+login. It called the same raw `->delete()`, so it had the same two outcomes:
+silent erasure, or a 500.
+
+The form and its component are gone, with a comment in the Blade saying why. A
+test asserts the profile page offers no way to delete your own account.
+
+### Not changed
+
+Hard deletion is still hard deletion, and the orphaned notification rows are
+still orphaned. Whether "delete" should become "deactivate forever" across the
+board is a larger question, left alone: `is_active` + `login_enabled` already
+cover the real need, and hard-deleting someone who booked clinic appointments
+would destroy clinical records.
+
+### Verified
+
+**386 tests, 943 assertions** — green. Eleven new ones in
+`tests/Feature/Users/DeleteUserTest.php` cover the clean cascade, the surviving
+`recorded_by` record, a refusal for each kind of authored content (data
+provider), a clinician holding appointments, the counted wording, the content
+being left intact, and deactivation still being available when deletion is not.
+`ProfileTest` lost its two self-delete tests and gained the guard.
