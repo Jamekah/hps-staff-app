@@ -14,7 +14,8 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 | 5. SM Clinic | Sports medicine bookings, clash engine, clinician views | ✅ Live in production |
 | Laravel 13 upgrade | Framework 12 → 13 (PHP 8.3+), no behaviour change | ✅ Merged to main and deployed |
 | 6. Staff Availability | Leave records, roster-only staff, leave in the conflict engine | ✅ Live in production |
-| 6.1 Leave stats & allowances | Annual/sick allowances, stats panel, clinic services on deploy | ⏳ On branch `phase-6.1-leave-stats`, awaiting review |
+| 6.1 Leave stats & allowances | Annual/sick allowances, stats panel, clinic services on deploy | ✅ Live in production |
+| Continuous integration | GitHub Actions runs the suite on PHP 8.4 and 8.5 for every PR | ✅ Live on `main` |
 
 **Everything below is verified working in production as of 2026-07-18.** Cloud
 infrastructure configured by Jason: MySQL, object-storage bucket, queue worker,
@@ -893,10 +894,11 @@ first real use will be an admin adding roster staff from the Staff tab.
 
 ---
 
-## Phase 6.1 — Leave stats & allowances ⏳ (2026-11-18) — on branch `phase-6.1-leave-stats`, not merged
+## Phase 6.1 — Leave stats & allowances ✅ (2026-11-18)
+
+Merged to main (PR #4, merge commit `1058e90`) and **deployed to production**.
 
 Two small additive parts, built to `../PHASE-6.1-BRIEF.md` on top of Phase 6.
-Awaiting Jason's local review.
 
 ### Part A — clinic services after every deploy
 
@@ -1008,3 +1010,32 @@ now follows the stats panel's selected year, as does the Staff tab's column.
 - `clinic_services.name` has no unique index, so Part A is a select-then-insert
   and races in theory. One deploy process makes that moot; adding a unique index
   to a live table seemed the larger risk.
+
+### Deployed (2026-11-18)
+
+Deployment **#36** (`1058e90`) succeeded in **1m31s**. It was the first change
+to reach production through CI: GitHub Actions ran the full suite on PHP 8.4
+and 8.5 (**366 tests, 888 assertions**, green on both) before the merge.
+
+Post-deploy checks against production:
+- `migrations` = 16 — the one new migration being Part A's clinic services.
+- **Part A was a true no-op**, as designed: still exactly 6 services, all
+  durations still 30 minutes, nothing overwritten.
+- 14 users and the single real leave record untouched.
+- `config('leave.allowances')` resolves to annual 15 / sick 10 on the server.
+- `LeaveAllowance::summaryForYear()` run against the live data returns 14 staff,
+  10 working days team-wide and **0 over a limit** — the one record being
+  Jayyson's annual leave, 23 Nov → 7 Dec, 10 working days. He will read as
+  10 / 15 with 5 left, below the 80% caution threshold.
+
+### Continuous integration (2026-11-18)
+
+`.github/workflows/tests.yml` runs the suite on every pull request and on
+pushes to `main`, against **PHP 8.4 and 8.5**. Until it existed, every deploy
+— including both Phase 6 deploys — went to production on local test runs
+alone.
+
+It earned its place on the first run. The matrix originally tested **8.3**, the
+floor `composer.json` declared, and that job failed at `composer install`:
+`symfony/http-foundation v8.1.11 requires php >=8.4.1`. The lock had never been
+installable on 8.3. See "PHP floor corrected" in the Laravel 13 section.
