@@ -12,7 +12,8 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 | 3. Notifications | In-app feed, FCM, device tokens, scheduled jobs | ✅ Live in production |
 | 4. Android | Capacitor wrapper, FCM native, APK build | ✅ Installed & verified on a physical phone |
 | 5. SM Clinic | Sports medicine bookings, clash engine, clinician views | ✅ Live in production |
-| Laravel 13 upgrade | Framework 12 → 13 (PHP 8.3+), no behaviour change | ⏳ On branch `upgrade-laravel-13`, awaiting review |
+| Laravel 13 upgrade | Framework 12 → 13 (PHP 8.3+), no behaviour change | ✅ Merged to main and deployed |
+| 6. Staff Availability | Leave records, roster-only staff, leave in the conflict engine | ⏳ On branch `phase-6-availability`, awaiting review |
 
 **Everything below is verified working in production as of 2026-07-18.** Cloud
 infrastructure configured by Jason: MySQL, object-storage bucket, queue worker,
@@ -471,14 +472,15 @@ things" rule intact.
 
 ---
 
-## Laravel 13 upgrade ⏳ (2026-11-17) — on branch `upgrade-laravel-13`, not merged
+## Laravel 13 upgrade ✅ (2026-11-17)
+
+Reviewed locally by Jason and **merged to main / deployed to production**.
 
 Framework upgrade only, per `../LARAVEL-13-UPGRADE-BRIEF.md`. **No feature, UI or
 behaviour change.** Laravel 12 bug fixes ended 13 Aug 2026 and security fixes end
 24 Feb 2027; Laravel 13 needs PHP 8.3+.
 
-Awaiting Jason's local review. **Laravel Cloud must be set to PHP 8.3+ before
-this is deployed** — Laravel 13 will not boot on 8.2.
+**Laravel Cloud runs PHP 8.3+** — Laravel 13 will not boot on 8.2.
 
 ### Package versions (before → after)
 
@@ -621,3 +623,231 @@ permanently: `.env`, `my.ini` and the MySQL services were all left as found.
 - The L13 skeleton drops `laravel/sail` and adds `laravel/pao`; our `dev` composer
   script also still uses the explicit `concurrently` form rather than `artisan dev`.
   All left alone deliberately — none affects runtime.
+
+---
+
+## Phase 6 — Staff Availability ⏳ (2026-11-18) — on branch `phase-6-availability`, not merged
+
+Leave tracking and the staff roster behind it, built per `../PHASE-6-BRIEF.md`.
+Additive: no existing events / gym / clinic / announcements / files behaviour
+changed except where the brief required it (the three user columns, the fourth
+conflict source, staff pickers, and notification targeting).
+
+Awaiting Jason's local review.
+
+### Built
+
+**Roster-only staff** — staff who don't use the app are now real `users` rows
+with no way in, so every module keeps pointing at one staff table. Three new
+columns: `position` (nullable), `login_enabled` (boolean, default true) and
+`email` made **nullable** while keeping its unique index (MySQL and SQLite both
+allow many NULLs). `password` stays NOT NULL; roster entries get a random hash
+they can never use.
+
+**The security boundary** (the main risk in this phase, and tested hardest):
+- `login_enabled` is part of the credential set in `Auth::attempt()`, so a
+  roster entry and a wrong password fail **identically** — same generic
+  `auth.failed` message, nothing revealing the account exists.
+- The same constraint is passed to `Password::sendResetLink()` everywhere it is
+  called, so **no reset token is ever issued** for a roster entry. The broker's
+  "we can't find that user" response is byte-identical to an unknown email.
+- `EnsureUserIsActive` also drops a live session if a login is switched off.
+- Six tests pin this down, including one that compares the roster-entry response
+  against the unknown-email response directly.
+
+**Access model** — two new gates, both admin + super_admin:
+- `manage-availability` — the page, and every leave action
+- `manage-roster` — adding and maintaining staff who have no login
+
+Plus a real `UserPolicy`, so the split is enforced in policy rather than UI:
+admins may add, edit and (de)activate **roster entries only** and may never
+touch a user who holds a login; roles, clinic flags, invites and deletion stay
+the super admin's. Plain staff and `can_book` staff get 403 and no nav link.
+
+**Users page (super admin)** — "No login" badge, position column and field, and
+a **Send invite** action that flips `login_enabled` and emails the standard
+set-password link, keeping the same row and all its history. "Reset link" is
+refused for a roster entry and points at Send invite instead.
+
+**Import list** — paste (`Name, Position, Email`, the last two optional) or CSV
+upload (≤1MB, ≤300 rows, header skipped, template downloadable). Every row is
+previewed as **New / Duplicate / Invalid** before anything is written; only New
+rows are created, all as roster entries. Duplicates match on name
+(case-insensitive, trimmed) or email, against both existing users **and rows
+already accepted in the same batch**, so pasting someone twice creates them once.
+
+**`staff_leaves`** — one row per absence: user, type (annual / sick / training /
+duty_travel / other), `first_day`, `return_date` ("back at work on",
+**exclusive**), note, recorded_by, cancelled_at / cancelled_by, indexed on
+(user_id, first_day, return_date). Whole days only. Cancelling keeps the row as
+history and stops it blocking anything. Validation: return > first (so one day is
+the minimum), the person must be active, and no overlap with their own
+non-cancelled leave — refused with a message naming the record in the way.
+
+**Conflict engine — a fourth source.** `StaffAvailability::conflicts()` now
+includes leave, as `[first_day 00:00, return_date 00:00)`, which drops straight
+into the existing half-open overlap rule: "back Wednesday" means free from
+Wednesday 00:00, with no special casing anywhere. The label is
+`On leave (back 9 Dec)` and **never names the type** — clinic bookers read these
+strings. New leave-only helpers (`leaveFor`, `onLeaveMap`, `leaveMap`) answer
+"are they away?" while ignoring every other kind of clash, and
+`assignmentConflicts()` is the inverse, for the conflict report. The engine stays
+module-agnostic.
+
+**Enforcement, which differs by module on purpose:**
+
+| | On leave |
+|---|---|
+| Event | **Blocks** a newly assigned person |
+| Gym, one-off (`none`) | **Blocks** a newly allocated person |
+| Gym, recurring series | **Flags** the affected occurrence dates |
+| Clinic, single booking | **Blocks** (through the engine) |
+| Clinic, recurring rehab | **Flags** (`has_clash`) |
+
+- Only *newly added* staff are blocked. Someone assigned **before** the leave was
+  recorded keeps their assignment, gets a warning chip, and never blocks an
+  unrelated edit — reassignment is a deliberate act.
+- Pickers grey out and disable people on leave, with "On leave · back {D M}",
+  re-evaluated live as the dates change.
+- Recurring gym series show a live summary before saving and keep it after:
+  "Kila is on leave for 3 of 24 sessions: 9, 11, 16 Dec."
+- "Away" badges (no reason) on the event and gym detail sheets.
+
+**Stored clinic flags are recomputed.** `has_clash` is set at booking time, so
+leave recorded afterwards makes it wrong in both directions. A `StaffLeave`
+observer calls `ClinicBooking::recomputeClashesFor()` on create, update and
+delete, covering **both the old and the new date range** on an edit — so the
+invariant holds wherever leave is written from, including seeders.
+
+**Reminders skip staff on leave** — `events:notify-today`,
+`gym:notify-upcoming` and `clinic:notify-upcoming` all check leave at the moment
+the event / session / appointment starts. `clinic:prompt-status` is deliberately
+unchanged: the outcome still has to be recorded.
+
+**Nothing is ever sent to roster-only staff.** `User::scopeNotifiable()`
+(= active + login_enabled) and `isNotifiable()` now sit behind every command and
+broadcast, announcements included — otherwise a stale backlog would greet them
+on the day they're invited. General announcements still reach staff who are on
+leave: leave suppresses reminders about work, not news.
+
+**The page** (`/availability`, Livewire, Modernist + 9 Sep refresh) — a
+segmented control over three tabs, remembered per session:
+- **Overview** — Away today (with working days left), Returning in the next 7
+  days, Upcoming leave (next 30 days), and Assignment warnings: upcoming work
+  whose assigned person is away, each linking to the day. Every panel has its
+  own empty state ("Everyone's in today").
+- **Month** — desktop team grid, staff rows × day columns, Monday weeks,
+  weekends shaded, leave drawn as bars with type + back date on hover, prev /
+  next / today, a position filter and a "show everyone" toggle (only staff with
+  leave that month are listed by default). At ≤640px the grid is replaced by a
+  7-day strip: tap a day, see who's away.
+- **Staff** — the roster: name, position, Login / No login badge, status,
+  working days of leave this year, next leave, search and position filter, plus
+  Add staff, Import list, edit and (de)activate. A detail sheet carries the
+  profile, leave history (this year, with an all-years toggle), totals by type
+  and "Record leave for {name}".
+
+**Record leave sheet** — five fields and nothing else: staff (searchable), type
+(text chips), first day away, back at work on (with +1 day / +1 week / +2 weeks
+chips), note. Under them, live: "8 working days (10 calendar) · back Wed 2 Dec",
+then the conflict report — everything that person is already assigned to in the
+window, each row linking to its day. **Nothing is ever auto-removed**, and the
+report never blocks saving.
+
+**New hue** — availability is **amber/ochre** (`leave` in `tailwind.config.js`),
+the fifth and last colour in the system, clear of the calendar's ink/red, the
+gym's blue/green and the clinic's plum. Leave types are told apart by text
+chips, never by more colours.
+
+**Working days** — `App\Services\WorkingDays`, Mon–Fri over the half-open
+window. PNG public holidays are out of scope, and `config('app.public_holidays')`
+is the single empty place they would plug in: fill it and every count in the app
+follows.
+
+**Demo seeder** (local-only, as before) — 10 roster-only staff with positions, a
+clinic client with three appointments, and 9 leave records spanning past,
+current and upcoming of every type, deliberately overlapping existing events,
+gym series and clinic appointments so every warning state has something real
+behind it. One cancelled record, to show history is kept.
+
+### Verified
+- **307 tests passing (723 assertions)** — 125 new, no regressions in any
+  existing suite. Engine (13), working days (7), security (6), roster
+  management (17), import (15), leave recording (16), enforcement (20),
+  notifications (11), page and access (20).
+- **Migrations run clean on real MySQL**, not just the SQLite test database:
+  first locally on MySQL 8.4 (throwaway `hps_staff_app_p6check`, created and
+  dropped; the real local `hps_staff_app` was never written to), then on
+  **production's own MySQL 8.0.39** (see below). `email` ends up
+  `varchar(255) NULL` with `users_email_unique` **still present**, `position`
+  `varchar(100) NULL`, `login_enabled` `tinyint(1)` default 1, and
+  `staff_leaves` with the compound index and the right FK behaviours (user
+  cascade, recorded_by/cancelled_by set null).
+
+### Verified against production's MySQL 8.0.39 (2026-11-18)
+
+Laravel Cloud's production database is MySQL **8.0.39**, not the 8.4 running
+locally, and the `email` ALTER was the one change worth proving on the real
+engine. Method, so it can be repeated:
+
+1. Created a throwaway schema `hps_p6_check` on the same cluster
+   (`db-a1472ed5…`, which also hosts `main` and `renttrack_png`).
+2. Cloned the **live** table structure with
+   `CREATE TABLE hps_p6_check.users LIKE hps_staff_app.users` — a real copy of
+   the production definition, indexes included.
+3. Inserted **50 synthetic rows** (`p6check{n}@example.test`). No production
+   user data was copied at any point; production was only ever read, and only
+   for a row count.
+4. Shipped both Phase 6 migration files into the app container and ran them
+   against that schema with Laravel 13 / PHP 8.5, exactly as a deploy would.
+
+Results on 8.0.39:
+- Both migrations applied cleanly (136ms and 363ms).
+- `email` → `varchar(255)`, nullable; `position` → `varchar(100)`, nullable;
+  `login_enabled` → `tinyint(1)`, NOT NULL.
+- **`users_email_unique` survived the ALTER**, alongside `primary`.
+- All 50 rows intact, none altered.
+- Three roster-only rows with `email = NULL` then inserted happily side by side
+  under the unique index — the behaviour the whole design depends on.
+- `staff_leaves` created with all 11 columns, the compound
+  (user_id, first_day, return_date) index, and FKs: user_id cascade,
+  recorded_by / cancelled_by set null.
+
+**⚠️ Rollback is one-way once roster staff exist.** `migrate:rollback` on the
+Phase 6 batch was tested on 8.0.39 with three roster-only rows present and
+**failed**: `SQLSTATE[22004] … 1138 Invalid use of NULL value` on
+`alter table users modify email varchar(255) not null`. Worse, Laravel rolls
+back in reverse order, so it had already **dropped `staff_leaves`** before
+reaching the failure, leaving `email` nullable, the columns in place, one
+migration still recorded as ran, and every leave record gone.
+
+The `down()` now checks for users without an email and throws an explicit
+message instead of letting MySQL raise SQLSTATE[22004] — but that only makes
+the failure legible, it cannot save the leave records dropped by the other
+migration first. **After this is live, recover with a database snapshot, not a
+rollback.** The cluster takes scheduled snapshots with 1-day retention.
+- **Browser-checked** against the seeded demo data: the Overview panels, the
+  desktop month grid (bars, shaded weekends, position filter, show-everyone),
+  the Staff roster with Login / No login badges and policy-correct actions (a
+  login account offers only "Leave" to an admin), and the Record leave sheet
+  with its live summary and conflict report ("Anna Temu is assigned to 60 items
+  during this leave").
+- **380px**: `document.scrollWidth === clientWidth === 380` on every tab — no
+  horizontal overflow — and the smallest visible tap target measured **44px**.
+  The month grid is replaced by the day strip, as designed.
+- `npm run build` compiles the new `leave` hue into the production CSS.
+
+### Notes for later
+- The Assignment warnings panel lists the first 20 and then says "and N more in
+  the next 30 days". With the demo data a week of leave against daily gym series
+  produces ~90 warnings, which is correct but unreadable in full; the count in
+  the panel header stays exact.
+- Allocation is per gym series, so leave cannot remove one person from one
+  occurrence — flagged instead, per the brief. Per-occurrence exceptions remain
+  out of scope.
+- Duplicate detection treats a repeat **within one import batch** as a duplicate
+  as well. The brief only specified matching against existing users; this seemed
+  plainly right, and is tested.
+- Still out of scope and not designed around: staff requesting their own leave
+  with approval, entitlements / balances, part-day leave, and exporting leave
+  reports.

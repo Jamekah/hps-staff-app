@@ -74,6 +74,19 @@ export default {
                     muted: '#5b7a6e',
                 },
 
+                // Staff Availability — amber/ochre. The fifth and last hue in
+                // the system: distinct from the calendar's ink/red, the gym's
+                // blue/green and the clinic's plum, so no colour means two
+                // things. Leave *types* are told apart by text chips, never by
+                // further colours.
+                leave: {
+                    DEFAULT: '#9a6413',
+                    tint: '#fcf3e4',
+                    dark: '#6d4609',
+                    mid: '#7e5d2c',
+                    muted: '#8a7859',
+                },
+
                 // SM Clinic — plum, deliberately apart from both the calendar's
                 // ink/red and the gym's blue/green so no colour means two things.
                 clinic: {

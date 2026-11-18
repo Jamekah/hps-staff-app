@@ -24,7 +24,10 @@ class PromptClinicAppointmentStatus extends Command
         foreach ($appointments as $appointment) {
             $clinician = $appointment->clinician;
 
-            if (! $clinician || ! $clinician->is_active) {
+            // Leave does not suppress this one: the outcome still has to be
+            // recorded once the appointment has passed. Roster-only accounts
+            // are excluded, as everywhere else.
+            if (! $clinician || ! $clinician->isNotifiable()) {
                 continue;
             }
 

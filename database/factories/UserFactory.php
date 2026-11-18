@@ -27,10 +27,12 @@ class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
+            'position' => null,
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'role' => \App\Enums\Role::Staff,
             'is_active' => true,
+            'login_enabled' => true,
             'can_book' => false,
             'is_clinician' => false,
             'remember_token' => Str::random(10),
@@ -81,6 +83,19 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_clinician' => true,
+        ]);
+    }
+
+    /**
+     * Roster-only staff: tracked and assignable, but with no way in. Email is
+     * dropped by default, since most roster entries are recorded without one.
+     */
+    public function rosterOnly(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'login_enabled' => false,
+            'email' => null,
+            'email_verified_at' => null,
         ]);
     }
 }

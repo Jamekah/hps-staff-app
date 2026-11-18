@@ -2,13 +2,19 @@
 
 namespace Database\Seeders;
 
+use App\Enums\LeaveType;
+use App\Enums\Role;
 use App\Models\Announcement;
+use App\Models\ClinicAppointment;
+use App\Models\ClinicClient;
+use App\Models\ClinicService;
 use App\Models\Event;
 use App\Models\GymSchedule;
+use App\Models\StaffLeave;
 use App\Models\User;
-use App\Enums\Role;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * Realistic sample content for reviewing the UI locally.
@@ -155,6 +161,109 @@ class DemoDataSeeder extends Seeder
             );
         }
 
+        // ---- Phase 6: roster-only staff -------------------------------------
+        // Tracked in `users` like everyone else, but with no way in: they show
+        // up in every staff picker and in leave, and receive no notifications.
+        $roster = collect([
+            ['Kila Vagi', 'Physiotherapist'],
+            ['Tom Bani', 'S&C Coach'],
+            ['Mary Siaka', 'Physiotherapist'],
+            ['Peter Namaliu', 'S&C Coach'],
+            ['Grace Oala', 'Sports Scientist'],
+            ['Joe Marape', 'Team Manager'],
+            ['Ruth Kaupa', 'Massage Therapist'],
+            ['Simon Aipi', 'Strength Coach'],
+            ['Linda Toua', 'Nutritionist'],
+            ['Baro Kemo', 'Equipment Officer'],
+        ])->map(fn (array $person) => User::updateOrCreate(
+            ['name' => $person[0]],
+            [
+                'position' => $person[1],
+                'email' => null,
+                'password' => Hash::make(Str::password(32)),
+                'role' => Role::Staff,
+                'is_active' => true,
+                'login_enabled' => false,
+            ]
+        ));
+
+        // ---- Phase 6: a clinic client and appointments, so leave has
+        //      something in the clinic to clash with ---------------------------
+        $service = ClinicService::where('name', 'Physiotherapy consultation')->first()
+            ?? ClinicService::updateOrCreate(
+                ['name' => 'Physiotherapy consultation'],
+                ['default_duration_minutes' => 30, 'allows_recurrence' => false, 'is_active' => true]
+            );
+
+        $clinician = $staff->first();
+        $clinician->update(['is_clinician' => true]);
+
+        $client = ClinicClient::updateOrCreate(
+            ['name' => 'Demo Client — J. Hoi'],
+            ['organization' => 'PNG Athletics', 'phone' => '+675 7000 0000']
+        );
+
+        foreach ([2, 3, 9] as $dayOffset) {
+            ClinicAppointment::updateOrCreate(
+                [
+                    'clinic_client_id' => $client->id,
+                    'starts_at' => today()->addDays($dayOffset)->setTime(9, 0),
+                ],
+                [
+                    'clinic_service_id' => $service->id,
+                    'assigned_staff_id' => $clinician->id,
+                    'booked_by' => $admin->id,
+                    'ends_at' => today()->addDays($dayOffset)->setTime(9, 30),
+                ]
+            );
+        }
+
+        // ---- Phase 6: leave, past / current / upcoming -----------------------
+        // Deliberately overlapping: $clinician is assigned to events, gym
+        // series and clinic appointments above, so every warning state on the
+        // Availability page has something real behind it.
+        StaffLeave::query()->delete();
+
+        $leaves = [
+            // [user, type, first day offset, return offset, note]
+            [$clinician, LeaveType::Annual, 1, 8, 'Family trip to Lae.'],
+            [$staff->get(1), LeaveType::Sick, -6, -3, null],
+            [$staff->get(2), LeaveType::Training, 12, 17, 'World Rugby S&C course.'],
+            [$roster->get(0), LeaveType::DutyTravel, 0, 4, 'Escorting the swim squad.'],
+            [$roster->get(1), LeaveType::Annual, -30, -20, null],
+            [$roster->get(2), LeaveType::Other, 21, 23, 'Bereavement.'],
+            [$roster->get(4), LeaveType::Annual, 5, 19, 'Two weeks off.'],
+            [$roster->get(6), LeaveType::Sick, 0, 2, null],
+        ];
+
+        foreach ($leaves as [$person, $type, $firstOffset, $returnOffset, $note]) {
+            if (! $person) {
+                continue;
+            }
+
+            StaffLeave::create([
+                'user_id' => $person->id,
+                'type' => $type,
+                'first_day' => today()->addDays($firstOffset)->toDateString(),
+                'return_date' => today()->addDays($returnOffset)->toDateString(),
+                'note' => $note,
+                'recorded_by' => $admin->id,
+            ]);
+        }
+
+        // One cancelled record, to show that history is kept and never blocks.
+        StaffLeave::create([
+            'user_id' => $roster->get(3)->id,
+            'type' => LeaveType::Annual,
+            'first_day' => today()->addDays(3)->toDateString(),
+            'return_date' => today()->addDays(6)->toDateString(),
+            'note' => 'Cancelled — trip called off.',
+            'recorded_by' => $admin->id,
+            'cancelled_at' => now(),
+            'cancelled_by' => $admin->id,
+        ]);
+
         $this->command?->info('Demo content seeded. Log in with your super admin account.');
+        $this->command?->info($roster->count().' roster-only staff and '.StaffLeave::count().' leave records added.');
     }
 }

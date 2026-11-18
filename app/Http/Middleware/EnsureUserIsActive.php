@@ -10,11 +10,13 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureUserIsActive
 {
     /**
-     * Log out and block any authenticated user whose account has been deactivated.
+     * Log out and block any authenticated user whose account has been
+     * deactivated, or whose login has since been turned off (a login account
+     * reduced to a roster entry keeps no live session).
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->user() && ! $request->user()->is_active) {
+        if ($request->user() && (! $request->user()->is_active || ! $request->user()->login_enabled)) {
             Auth::guard('web')->logout();
 
             $request->session()->invalidate();

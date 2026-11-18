@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ClinicAppointment;
 use App\Notifications\ClinicAppointmentReminder;
+use App\Services\StaffAvailability;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
@@ -13,7 +14,7 @@ class NotifyUpcomingClinicAppointments extends Command
 
     protected $description = 'Remind clinicians 60 minutes before an appointment starts (runs every 5 minutes)';
 
-    public function handle(): int
+    public function handle(StaffAvailability $availability): int
     {
         // Half-open window matched to the 5-minute cadence, mirroring the gym
         // reminder: each appointment falls into exactly one run.
@@ -30,7 +31,13 @@ class NotifyUpcomingClinicAppointments extends Command
         foreach ($appointments as $appointment) {
             $clinician = $appointment->clinician;
 
-            if (! $clinician || ! $clinician->is_active) {
+            if (! $clinician || ! $clinician->isNotifiable()) {
+                continue;
+            }
+
+            // On leave when the appointment starts: no reminder. The booking
+            // itself still shows as a clash on the Availability page.
+            if ($availability->leaveFor($clinician->id, $appointment->starts_at, $appointment->starts_at->copy()->addMinute())) {
                 continue;
             }
 

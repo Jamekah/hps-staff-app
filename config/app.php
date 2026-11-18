@@ -70,6 +70,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Public Holidays
+    |--------------------------------------------------------------------------
+    |
+    | Dates (Y-m-d) excluded from the working-day counts shown against staff
+    | leave. Empty by design - PNG's holiday calendar is out of scope for
+    | Phase 6, and this is the single place it would be supplied.
+    |
+    */
+
+    'public_holidays' => [],
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

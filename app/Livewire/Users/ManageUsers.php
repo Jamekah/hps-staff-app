@@ -27,7 +27,12 @@ class ManageUsers extends Component
 
     public string $email = '';
 
+    public string $position = '';
+
     public string $role = 'staff';
+
+    /** Roster entries have no login; the form adapts rather than hiding them. */
+    public bool $editingRosterOnly = false;
 
     /** SM Clinic privileges — orthogonal to the role enum. */
     public bool $can_book = false;
@@ -50,8 +55,9 @@ class ManageUsers extends Component
     {
         $this->authorize('manage-users');
 
-        $this->reset(['editingId', 'name', 'email', 'statusMessage', 'can_book', 'is_clinician']);
+        $this->reset(['editingId', 'name', 'email', 'position', 'statusMessage', 'can_book', 'is_clinician']);
         $this->role = 'staff';
+        $this->editingRosterOnly = false;
         $this->resetValidation();
         $this->showModal = true;
     }
@@ -64,7 +70,9 @@ class ManageUsers extends Component
 
         $this->editingId = $user->id;
         $this->name = $user->name;
-        $this->email = $user->email;
+        $this->email = $user->email ?? '';
+        $this->position = $user->position ?? '';
+        $this->editingRosterOnly = $user->isRosterOnly();
         $this->role = $user->role->value;
         $this->can_book = $user->can_book;
         $this->is_clinician = $user->is_clinician;
@@ -77,16 +85,23 @@ class ManageUsers extends Component
     {
         $this->authorize('manage-users');
 
+        // A roster entry may legitimately have no email; anyone with a login
+        // must have one, since that is how they get in.
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => [
-                'required', 'string', 'lowercase', 'email', 'max:255',
+                $this->editingRosterOnly ? 'nullable' : 'required',
+                'string', 'lowercase', 'email', 'max:255',
                 Rule::unique('users', 'email')->ignore($this->editingId),
             ],
+            'position' => ['nullable', 'string', 'max:100'],
             'role' => ['required', Rule::in(Role::values())],
             'can_book' => ['boolean'],
             'is_clinician' => ['boolean'],
         ]);
+
+        $validated['email'] = $validated['email'] ?: null;
+        $validated['position'] = $validated['position'] ?: null;
 
         if ($this->editingId) {
             $user = User::findOrFail($this->editingId);
@@ -151,9 +166,42 @@ class ManageUsers extends Component
         $this->authorize('manage-users');
 
         $user = User::findOrFail($userId);
-        Password::sendResetLink(['email' => $user->email]);
+
+        if ($user->isRosterOnly()) {
+            session()->flash('error', "{$user->name} has no login. Use \"Send invite\" to create one.");
+
+            return;
+        }
+
+        // login_enabled is part of the credentials everywhere a reset link is
+        // issued, so a roster entry can never be handed a token.
+        Password::sendResetLink(['email' => $user->email, 'login_enabled' => true]);
 
         session()->flash('status', "Password reset link sent to {$user->email}.");
+    }
+
+    /**
+     * Turn a roster entry into a working login account, keeping its history:
+     * the row, and everything assigned to it, stays exactly as it is.
+     */
+    public function sendInvite(int $userId): void
+    {
+        $user = User::findOrFail($userId);
+        $this->authorize('sendInvite', $user);
+
+        if (! $user->email) {
+            session()->flash('error', "Add an email address for {$user->name} first, then send the invite.");
+
+            $this->openEdit($userId);
+
+            return;
+        }
+
+        $user->update(['login_enabled' => true]);
+
+        Password::sendResetLink(['email' => $user->email, 'login_enabled' => true]);
+
+        session()->flash('status', "Invite sent to {$user->email}. They can now set a password and sign in.");
     }
 
     public function render()
@@ -162,7 +210,8 @@ class ManageUsers extends Component
             ->when($this->search, function ($query) {
                 $query->where(fn ($q) => $q
                     ->where('name', 'like', "%{$this->search}%")
-                    ->orWhere('email', 'like', "%{$this->search}%"));
+                    ->orWhere('email', 'like', "%{$this->search}%")
+                    ->orWhere('position', 'like', "%{$this->search}%"));
             })
             ->orderBy('name')
             ->paginate(15);

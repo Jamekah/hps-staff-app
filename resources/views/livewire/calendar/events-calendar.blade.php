@@ -233,7 +233,15 @@
                 @else
                     <div class="flex flex-wrap gap-1.5">
                         @foreach ($selectedEvent->staff as $member)
-                            <span class="hps-chip">{{ $member->name }}</span>
+                            <span @class([
+                                'hps-chip',
+                                'border-leave bg-leave-tint text-leave-dark' => isset($selectedEventLeave[$member->id]),
+                            ])>
+                                {{ $member->name }}
+                                @isset($selectedEventLeave[$member->id])
+                                    <span class="ms-1 text-[10px] font-semibold uppercase tracking-label">Away</span>
+                                @endisset
+                            </span>
                         @endforeach
                     </div>
                 @endif
@@ -308,13 +316,50 @@
                     <x-input-label value="Assign staff" />
                     <div class="mt-1 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-ink-400 bg-surface p-2.5">
                         @foreach ($activeStaff as $member)
-                            <label class="flex cursor-pointer items-center gap-2 text-sm text-ink-800">
+                            @php
+                                $leave = $staffOnLeave[$member->id] ?? null;
+                                $alreadyOn = in_array((string) $member->id, $staffIds, true);
+                            @endphp
+
+                            <label wire:key="evstaff-{{ $member->id }}"
+                                @class([
+                                    'flex items-center gap-2 text-sm',
+                                    'cursor-pointer text-ink-800' => ! $leave || $alreadyOn,
+                                    'cursor-not-allowed text-ink-400' => $leave && ! $alreadyOn,
+                                ])>
                                 <input type="checkbox" wire:model="staffIds" value="{{ $member->id }}"
-                                    class="border-ink-400 text-accent focus:ring-accent">
-                                {{ $member->name }}
+                                    @disabled($leave && ! $alreadyOn)
+                                    class="border-ink-400 text-accent focus:ring-accent disabled:opacity-40">
+                                <span class="flex-1">{{ $member->name }}</span>
+
+                                @if ($leave)
+                                    <span @class([
+                                        'shrink-0 text-[10px] font-semibold uppercase tracking-label',
+                                        'text-leave-dark' => ! $alreadyOn,
+                                        'text-accent-700' => $alreadyOn,
+                                    ])>
+                                        On leave · back {{ $leave->return_date->format('j M') }}
+                                    </span>
+                                @endif
                             </label>
                         @endforeach
                     </div>
+
+                    {{-- Already assigned before the leave was recorded: flagged, never
+                         auto-removed, and never a reason to block an unrelated edit. --}}
+                    @php
+                        $assignedOnLeave = collect($staffOnLeave)
+                            ->filter(fn ($leave, $id) => in_array((string) $id, $staffIds, true));
+                    @endphp
+
+                    @if ($assignedOnLeave->isNotEmpty())
+                        <p class="mt-1.5 rounded-lg border-s-4 border-leave bg-leave-tint px-3 py-2 text-xs text-leave-dark">
+                            Already assigned and now on leave:
+                            {{ $activeStaff->whereIn('id', $assignedOnLeave->keys()->all())->pluck('name')->join(', ') }}.
+                            They stay assigned until you change it.
+                        </p>
+                    @endif
+
                     <x-input-error :messages="$errors->get('staffIds')" class="mt-1" />
                     <x-input-error :messages="collect($errors->get('staffIds.*'))->flatten()->all()" class="mt-1" />
                 </div>

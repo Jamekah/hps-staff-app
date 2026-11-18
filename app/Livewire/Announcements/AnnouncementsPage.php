@@ -68,14 +68,19 @@ class AnnouncementsPage extends Component
 
     /**
      * Single code path for publishing: creates the announcement and queues
-     * the broadcast (in-app + push) to all active users, in chunks so a
+     * the broadcast (in-app + push) to every notifiable user, in chunks so a
      * large staff list never blocks the request.
+     *
+     * `notifiable()` is active + login_enabled: roster-only staff are tracked
+     * in `users` but have no way to read anything, so nothing is queued for
+     * them to find later.
      */
     protected function publish(array $attributes): Announcement
     {
         $announcement = Announcement::create([...$attributes, 'created_by' => auth()->id()]);
 
-        User::where('is_active', true)
+        User::query()
+            ->notifiable()
             ->chunkById(100, function ($users) use ($announcement) {
                 Notification::send($users, new AnnouncementPublished($announcement));
             });
