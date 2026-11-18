@@ -1,0 +1,82 @@
+name: Tests
+
+# Runs the full suite on every pull request and on main. Merging to main
+# deploys straight to production (Laravel Cloud push-to-deploy), so this is
+# the only automated check standing between a PR and the live app.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A new push to the same branch supersedes the run in progress.
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 8.3 is the floor in composer.json; 8.5 is what production runs.
+        # Both, so neither the stated minimum nor the live version can rot.
+        php: ['8.3', '8.5']
+
+    steps:
+      - name: Check out the branch
+        uses: actions/checkout@v4
+
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          # pdo_sqlite / sqlite3 carry the test database, which phpunit.xml
+          # keeps in memory; the rest are Laravel's usual requirements.
+          extensions: bcmath, ctype, curl, dom, fileinfo, intl, mbstring, openssl, pdo, pdo_sqlite, sqlite3, tokenizer, xml, zip
+          coverage: none
+
+      - name: Create the environment file
+        # Written before composer install: post-autoload-dump boots the
+        # framework to run package:discover.
+        run: cp .env.example .env
+
+      - name: Locate the composer cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php${{ matrix.php }}-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Generate the application key
+        run: php artisan key:generate
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Matches the Node version Laravel Cloud builds with.
+          node-version: '24'
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build the front-end assets
+        # public/build is gitignored, and every page layout calls @vite, so
+        # the manifest has to exist before any test renders a view.
+        run: npm run build
+
+      - name: Run the test suite
+        run: php artisan test
