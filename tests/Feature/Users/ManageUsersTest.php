@@ -5,6 +5,7 @@ namespace Tests\Feature\Users;
 use App\Enums\Role;
 use App\Livewire\Users\ManageUsers;
 use App\Models\User;
+use App\Notifications\AccountSetupInvitation;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -41,7 +42,7 @@ class ManageUsersTest extends TestCase
         $this->get('/users')->assertRedirect(route('login'));
     }
 
-    public function test_super_admin_can_create_a_user_and_reset_link_is_sent(): void
+    public function test_super_admin_can_create_a_user_and_a_setup_link_is_sent(): void
     {
         Notification::fake();
 
@@ -63,7 +64,8 @@ class ManageUsersTest extends TestCase
         $this->assertSame(Role::Staff, $user->role);
         $this->assertTrue($user->is_active);
 
-        Notification::assertSentTo($user, ResetPassword::class);
+        Notification::assertSentTo($user, AccountSetupInvitation::class);
+        Notification::assertNotSentTo($user, ResetPassword::class);
     }
 
     public function test_super_admin_can_update_a_users_role(): void

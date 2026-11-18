@@ -91,7 +91,7 @@
 
                                         @if ($user->isRosterOnly())
                                             <button wire:click="sendInvite({{ $user->id }})"
-                                                wire:confirm="Give {{ $user->name }} a login and email them a set-password link?"
+                                                wire:confirm="Give {{ $user->name }} a login and email them an account-setup link?"
                                                 class="inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-leave-dark transition hover:text-leave sm:py-0">Send invite</button>
                                         @else
                                             <button wire:click="sendResetLink({{ $user->id }})"

@@ -99,6 +99,21 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        /*
+         * Account-setup links for brand new accounts and roster invites.
+         *
+         * A new staff member is not sitting at their inbox waiting, so the
+         * link is good for 24 hours rather than the hour a genuine reset
+         * gets. It has its own table so the longer window can never be
+         * borrowed by a real password-reset token.
+         */
+        'invites' => [
+            'provider' => 'users',
+            'table' => env('AUTH_INVITE_TOKEN_TABLE', 'password_invite_tokens'),
+            'expire' => env('AUTH_INVITE_EXPIRE_MINUTES', 1440),
+            'throttle' => 60,
+        ],
     ],
 
     /*

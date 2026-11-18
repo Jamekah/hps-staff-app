@@ -4,6 +4,7 @@ namespace App\Livewire\Users;
 
 use App\Enums\Role;
 use App\Models\User;
+use App\Notifications\AccountSetupInvitation;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -121,9 +122,10 @@ class ManageUsers extends Component
                 'password' => Str::password(32),
             ]);
 
-            // New users set their own password via the standard reset-link email.
-            Password::sendResetLink(['email' => $user->email]);
-            session()->flash('status', 'User created. A set-password link has been emailed to them.');
+            // A brand new account is activated by its owner setting a password:
+            // an account-setup email, not a password reset.
+            $this->sendAccountSetupLink($user);
+            session()->flash('status', 'User created. An account-setup link has been emailed to them.');
         }
 
         $this->showModal = false;
@@ -199,9 +201,23 @@ class ManageUsers extends Component
 
         $user->update(['login_enabled' => true]);
 
-        Password::sendResetLink(['email' => $user->email, 'login_enabled' => true]);
+        $this->sendAccountSetupLink($user);
 
         session()->flash('status', "Invite sent to {$user->email}. They can now set a password and sign in.");
+    }
+
+    /**
+     * The one way an account is activated: a 24-hour setup link on the
+     * `invites` broker, carrying the account-setup email rather than the
+     * password-reset one. `login_enabled` stays in the credentials so a roster
+     * entry can never be handed a token.
+     */
+    protected function sendAccountSetupLink(User $user): void
+    {
+        Password::broker('invites')->sendResetLink(
+            ['email' => $user->email, 'login_enabled' => true],
+            fn (User $invitee, string $token) => $invitee->notify(new AccountSetupInvitation($token)),
+        );
     }
 
     public function render()
