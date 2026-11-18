@@ -13,7 +13,7 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 | 4. Android | Capacitor wrapper, FCM native, APK build | ✅ Installed & verified on a physical phone |
 | 5. SM Clinic | Sports medicine bookings, clash engine, clinician views | ✅ Live in production |
 | Laravel 13 upgrade | Framework 12 → 13 (PHP 8.3+), no behaviour change | ✅ Merged to main and deployed |
-| 6. Staff Availability | Leave records, roster-only staff, leave in the conflict engine | ⏳ On branch `phase-6-availability`, awaiting review |
+| 6. Staff Availability | Leave records, roster-only staff, leave in the conflict engine | ✅ Live in production |
 
 **Everything below is verified working in production as of 2026-07-18.** Cloud
 infrastructure configured by Jason: MySQL, object-storage bucket, queue worker,
@@ -626,14 +626,14 @@ permanently: `.env`, `my.ini` and the MySQL services were all left as found.
 
 ---
 
-## Phase 6 — Staff Availability ⏳ (2026-11-18) — on branch `phase-6-availability`, not merged
+## Phase 6 — Staff Availability ✅ (2026-11-18)
+
+Merged to main (PR #3, merge commit `e700da7`) and **deployed to production**.
 
 Leave tracking and the staff roster behind it, built per `../PHASE-6-BRIEF.md`.
 Additive: no existing events / gym / clinic / announcements / files behaviour
 changed except where the brief required it (the three user columns, the fourth
 conflict source, staff pickers, and notification targeting).
-
-Awaiting Jason's local review.
 
 ### Built
 
@@ -836,6 +836,27 @@ rollback.** The cluster takes scheduled snapshots with 1-day retention.
   horizontal overflow — and the smallest visible tap target measured **44px**.
   The month grid is replaced by the day strip, as designed.
 - `npm run build` compiles the new `leave` hue into the production CSS.
+
+### Deployed (2026-11-18)
+
+Deployment **#32** (`e700da7`) succeeded in **1m34s** via push-to-deploy. The
+deploy command ran `php artisan migrate --force`, applying both Phase 6
+migrations to the live database.
+
+Post-deploy checks against production:
+- `migrations` = 15 (13 + the two Phase 6)
+- `users` = 3, **all three `login_enabled`** and active — nobody was locked out
+  by the new column, which defaults to true
+- `users_email_unique` still present; `email` now nullable; no NULL emails yet
+- `staff_leaves` present, 0 rows
+- Route `GET availability` registered and resolving to the Livewire page
+- `manage-availability` gate registered; `User::notifiable()` returns 3
+- All four scheduled commands still listed and due normally
+
+`https://hps-staff-app-production-nq8tav.laravel.cloud/login` returns 200.
+
+**Nothing has been created in the module yet** — no roster staff, no leave. The
+first real use will be an admin adding roster staff from the Staff tab.
 
 ### Notes for later
 - The Assignment warnings panel lists the first 20 and then says "and N more in
