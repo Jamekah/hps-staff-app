@@ -13,6 +13,11 @@ Route::middleware('guest')->group(function () {
 
     Volt::route('reset-password/{token}', 'pages.auth.reset-password')
         ->name('password.reset');
+
+    // Activation for a new account or a roster invite. Separate from the
+    // password reset above: its own 24-hour token, its own copy.
+    Volt::route('set-password/{token}', 'pages.auth.setup-account')
+        ->name('password.setup');
 });
 
 Route::middleware('auth')->group(function () {

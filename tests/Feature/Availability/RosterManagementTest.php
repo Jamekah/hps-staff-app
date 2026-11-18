@@ -6,7 +6,7 @@ use App\Enums\Role;
 use App\Livewire\Availability\StaffAvailabilityPage;
 use App\Livewire\Users\ManageUsers;
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Notifications\AccountSetupInvitation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
@@ -199,7 +199,7 @@ class RosterManagementTest extends TestCase
         $roster->refresh();
 
         $this->assertTrue($roster->login_enabled);
-        Notification::assertSentTo($roster, ResetPassword::class);
+        Notification::assertSentTo($roster, AccountSetupInvitation::class);
     }
 
     public function test_inviting_someone_without_an_email_asks_for_one_first(): void

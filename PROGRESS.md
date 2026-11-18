@@ -47,7 +47,9 @@ scheduler, Gmail SMTP mail, Firebase env secrets.
   (config-cache safe for Laravel Cloud). Credentials live only in `.env` — never committed.
 - **User Management page** (`/users`, super admin only): list + search + pagination,
   create/edit (name, email, role), activate/deactivate, delete, "send reset link".
-  New users get a random password and a set-password email (reset-link flow, per spec).
+  New users get a random password and an **account-setup email** (24-hour
+  `invites` token — see "Account setup replaces the reset email", 18 Nov 2026;
+  originally the stock reset-link flow).
   Self-protection: super admin cannot deactivate, delete, or demote themselves.
 - **Database**: local MySQL `hps_staff_app` (XAMPP MariaDB).
 
@@ -240,7 +242,7 @@ Future roadmap (per CLAUDE.md): sports clinic booking module, possible iOS wrapp
 - Run app: `php artisan serve` · Run tests: `php artisan test`
 - Mail: `log` driver locally (reset links land in `storage/logs/laravel.log`);
   **Gmail SMTP in production** (app password stored as a Cloud secret). New-user
-  set-password emails verified delivering to real inboxes.
+  account-setup emails verified delivering to real inboxes.
 - **Secrets never in git** (verified): `.env`, `android/app/google-services.json`,
   `android/keystore.properties`, `android/app/hps-release.jks`.
 - ⚠️ **Keystore backup**: `android/app/hps-release.jks` + its passwords exist ONLY
@@ -685,7 +687,7 @@ the super admin's. Plain staff and `can_book` staff get 403 and no nav link.
 
 **Users page (super admin)** — "No login" badge, position column and field, and
 a **Send invite** action that flips `login_enabled` and emails the standard
-set-password link, keeping the same row and all its history. "Reset link" is
+account-setup link, keeping the same row and all its history. "Reset link" is
 refused for a roster entry and points at Send invite instead.
 
 **Import list** — paste (`Name, Position, Email`, the last two optional) or CSV
@@ -1039,3 +1041,76 @@ It earned its place on the first run. The matrix originally tested **8.3**, the
 floor `composer.json` declared, and that job failed at `composer install`:
 `symfony/http-foundation v8.1.11 requires php >=8.4.1`. The lock had never been
 installable on 8.3. See "PHP floor corrected" in the Laravel 13 section.
+
+## Account setup replaces the reset email (2026-11-18)
+
+### Why
+
+Adding a user from the Users page emailed them Laravel's stock password-reset
+notification: subject "Reset your password", body "we received a password reset
+request for your account", and the line "If you did not request a password
+reset, no further action is required." Nobody had requested anything — the
+account had just been created for them — so the first thing a new staff member
+read was an email telling them they could ignore it. The link also expired in
+60 minutes, which is right for a reset and far too short for onboarding
+someone who may open their inbox that evening.
+
+That was the spec's own choice ("prefer the reset-link flow"), not a defect,
+and it had worked since Phase 1. It is now replaced.
+
+### What a new account gets
+
+`App\Notifications\AccountSetupInvitation` — subject **"Set up your HPS Staff
+account"**, a **"Set up your account"** button, and copy that says an account
+has been created and choosing a password activates it. No reset wording
+anywhere. It states the 24-hour window and who to ask for a fresh link.
+
+Setting the password **is** the activation: no email-confirmation step, no
+second factor. The invitee lands on `/set-password/{token}`
+(`pages.auth.setup-account`), a guest page of its own with its own heading and
+an **Activate account** button, and is redirected to the login screen with
+"Your account is ready. Sign in with your new password."
+
+Both routes into an account use it:
+- **Create user** (super admin) — the row still gets a random 32-character
+  password nobody knows; the email is the only way in.
+- **Send invite** on a roster entry — flips `login_enabled` and sends the same
+  email, as before keeping the row and everything assigned to it.
+
+**Password reset is untouched.** `/forgot-password` → stock Laravel email →
+`/reset-password/{token}`, 60 minutes, exactly as it was.
+
+### The 24 hours, and why a second token table
+
+The window is a property of the **broker**, not the token, so the two flows
+needed two brokers: `users` (60 min) and the new `invites`
+(`AUTH_INVITE_EXPIRE_MINUTES`, default 1440). They also get **separate tables**
+— `password_invite_tokens`, added by
+`2026_11_18_300001_create_password_invite_tokens_table`.
+
+Sharing one table would have been simpler and wrong: a genuine reset token,
+dead at 61 minutes on its own page, could have been redeemed through the setup
+page for a further 23 hours. Separate stores make each token meaningless to the
+other page, and an invite now survives the staff member trying "forgot
+password" first. Two tests pin both directions.
+
+An expired or reused setup link does not say "invalid token" — it says the link
+has expired or was already used, and to ask an administrator for a new one,
+which is what has actually happened.
+
+`login_enabled => true` stays in the credentials on the `invites` broker, so a
+roster entry still cannot be handed a token by any path.
+
+### Verified
+
+**376 tests, 926 assertions** — green. Ten new ones in
+`tests/Feature/Auth/AccountSetupTest.php`: the email's subject, button, URL and
+24-hour line; the token landing in its own table; activation at 23 hours;
+refusal at 25; a reset token rejected by the setup page and a setup token
+rejected by the reset page; and no token for a roster entry. Existing
+expectations of `ResetPassword` on create and invite were switched to
+`AccountSetupInvitation`.
+
+Not yet done: nothing deployed. The new migration ships with the next deploy
+(Laravel Cloud runs `migrate`), and until it runs, creating a user on
+production will fail on the missing table — deploy before adding staff.
