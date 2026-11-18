@@ -561,13 +561,19 @@
                                         class="border-ink-400 text-clinic focus:ring-clinic disabled:opacity-40">
                                     <span class="flex-1">{{ $entry['user']->name }}</span>
                                     @unless ($entry['free'])
-                                        <span class="text-[10px] font-semibold uppercase tracking-label text-accent-700">Busy</span>
+                                        {{-- Reason only, never the leave type. --}}
+                                        <span @class([
+                                            'text-[10px] font-semibold uppercase tracking-label',
+                                            'text-leave-dark' => $entry['reason'] === 'On leave',
+                                            'text-accent-700' => $entry['reason'] !== 'On leave',
+                                        ])>{{ $entry['reason'] ?? 'Busy' }}</span>
                                     @endunless
                                 </label>
                             @endforeach
                         </div>
                         <p class="mt-1 text-xs text-ink-600">
-                            Clinicians already committed to an event, gym session or appointment at this time cannot be selected.
+                            Clinicians already committed to an event, gym session or appointment at this time, or on
+                            leave that day, cannot be selected.
                         </p>
                     @endif
 

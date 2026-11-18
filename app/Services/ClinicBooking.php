@@ -133,8 +133,12 @@ class ClinicBooking
 
     /**
      * Clinicians selectable for a window: those with is_clinician who are both
-     * active and free. Returns [userId => ['user' => User, 'free' => bool]] so
-     * the UI can grey out the clashing ones rather than hide them.
+     * active and free. Returns
+     * [userId => ['user' => User, 'free' => bool, 'reason' => ?string]] so the
+     * UI can grey out the unavailable ones rather than hide them.
+     *
+     * `reason` is 'On leave' or 'Busy' — never the leave type, which stays on
+     * the Staff Availability page.
      */
     public function clinicianAvailability(CarbonInterface $start, CarbonInterface $end, ?int $ignoreAppointmentId = null): array
     {
@@ -144,16 +148,61 @@ class ClinicBooking
             ->orderBy('name')
             ->get();
 
+        $onLeave = $this->availability->onLeaveMap($clinicians->pluck('id')->all(), $start, $end);
+
         $result = [];
 
         foreach ($clinicians as $clinician) {
+            $free = $this->availability->isFree($clinician->id, $start, $end, $ignoreAppointmentId);
+
             $result[$clinician->id] = [
                 'user' => $clinician,
-                'free' => $this->availability->isFree($clinician->id, $start, $end, $ignoreAppointmentId),
+                'free' => $free,
+                'reason' => $free
+                    ? null
+                    : (($onLeave[$clinician->id] ?? false) ? 'On leave' : 'Busy'),
             ];
         }
 
         return $result;
+    }
+
+    /**
+     * Re-evaluate the stored `has_clash` flag on a clinician's scheduled
+     * appointments in a date range.
+     *
+     * Leave is recorded after the fact, so flags set at booking time go stale
+     * the moment someone's leave is created, edited or cancelled. Each
+     * appointment is re-checked with the full conflict engine, ignoring itself.
+     *
+     * @return int  How many rows changed.
+     */
+    public function recomputeClashesFor(int $userId, CarbonInterface $from, CarbonInterface $to): int
+    {
+        $appointments = ClinicAppointment::query()
+            ->where('assigned_staff_id', $userId)
+            ->blocking()
+            ->where('starts_at', '<', $to)
+            ->where('ends_at', '>', $from)
+            ->get();
+
+        $changed = 0;
+
+        foreach ($appointments as $appointment) {
+            $hasClash = ! $this->availability->isFree(
+                $userId,
+                $appointment->starts_at,
+                $appointment->ends_at,
+                $appointment->id,
+            );
+
+            if ($appointment->has_clash !== $hasClash) {
+                $appointment->forceFill(['has_clash' => $hasClash])->save();
+                $changed++;
+            }
+        }
+
+        return $changed;
     }
 
     /**
@@ -169,7 +218,7 @@ class ClinicBooking
     {
         $clinician = $appointment->clinician;
 
-        if ($clinician && $clinician->is_active) {
+        if ($clinician && $clinician->isNotifiable()) {
             $clinician->notify(new ClinicAppointmentAssigned($appointment));
         }
     }
@@ -178,7 +227,7 @@ class ClinicBooking
     {
         $clinician = $series->clinician;
 
-        if ($clinician && $clinician->is_active) {
+        if ($clinician && $clinician->isNotifiable()) {
             $clinician->notify(new ClinicAppointmentAssigned(
                 $series->appointments()->orderBy('starts_at')->first(),
                 $series->appointments()->count()

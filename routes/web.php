@@ -3,6 +3,7 @@
 use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\DocumentDownloadController;
 use App\Livewire\Announcements\AnnouncementsPage;
+use App\Livewire\Availability\StaffAvailabilityPage;
 use App\Livewire\Calendar\EventsCalendar;
 use App\Livewire\Clinic\ClinicSchedule;
 use App\Livewire\Clinic\MyAppointments;
@@ -45,6 +46,11 @@ Route::middleware('auth')->group(function () {
     Route::get('clinic/my-appointments', MyAppointments::class)
         ->middleware('can:view-own-appointments')
         ->name('clinic.mine');
+
+    // Staff Availability — leave records and the staff roster behind them.
+    Route::get('availability', StaffAvailabilityPage::class)
+        ->middleware('can:manage-availability')
+        ->name('availability');
 
     Route::get('notifications', NotificationsPage::class)->name('notifications');
 

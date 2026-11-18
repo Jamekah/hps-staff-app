@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\GymSchedule;
+use App\Models\User;
 use App\Notifications\GymSessionReminder;
+use App\Services\StaffAvailability;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
@@ -14,7 +16,7 @@ class NotifyUpcomingGymSessions extends Command
 
     protected $description = 'Remind allocated staff 60 minutes before a gym session starts (runs every 5 minutes)';
 
-    public function handle(): int
+    public function handle(StaffAvailability $availability): int
     {
         $today = today();
 
@@ -31,7 +33,22 @@ class NotifyUpcomingGymSessions extends Command
             });
 
         foreach ($sessions as $session) {
-            $staff = $session->staff->where('is_active', true);
+            $staff = $session->staff->filter(fn (User $member) => $member->isNotifiable());
+
+            if ($staff->isEmpty()) {
+                continue;
+            }
+
+            // Skip anyone on leave on the day of the occurrence.
+            $startsAt = $today->copy()->setTimeFromTimeString($session->start_time);
+
+            $onLeave = $availability->onLeaveMap(
+                $staff->pluck('id')->all(),
+                $startsAt,
+                $startsAt->copy()->addMinute(),
+            );
+
+            $staff = $staff->reject(fn (User $member) => $onLeave[$member->id] ?? false);
 
             if ($staff->isEmpty()) {
                 continue;

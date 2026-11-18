@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ClinicAppointment;
 use App\Models\Event;
 use App\Models\GymSchedule;
+use App\Models\StaffLeave;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -14,7 +15,8 @@ use Illuminate\Support\Collection;
  *
  * Answers "is this person free between these two times?" across every module
  * that can occupy someone's day: events they're assigned to, gym sessions
- * they're allocated to, and clinic appointments assigned to them.
+ * they're allocated to, clinic appointments assigned to them, and leave
+ * recorded against them.
  *
  * Deliberately module-agnostic — it takes a user id and a window, so future
  * features can reuse it without modification.
@@ -37,7 +39,10 @@ class StaffAvailability
 
     /**
      * Everything in the user's schedule that overlaps the window. Each entry is
-     * ['type' => 'event'|'gym'|'clinic', 'label' => string, 'starts_at' => Carbon, 'ends_at' => Carbon].
+     * ['type' => 'event'|'gym'|'clinic'|'leave', 'label' => string, 'starts_at' => Carbon, 'ends_at' => Carbon].
+     *
+     * Leave labels never name the leave type: clinic bookers and other admins
+     * see these strings, and why someone is away is theirs alone.
      */
     public function conflicts(int $userId, CarbonInterface $start, CarbonInterface $end, ?int $ignoreAppointmentId = null): Collection
     {
@@ -45,7 +50,90 @@ class StaffAvailability
             ->concat($this->eventConflicts($userId, $start, $end))
             ->concat($this->gymConflicts($userId, $start, $end))
             ->concat($this->clinicConflicts($userId, $start, $end, $ignoreAppointmentId))
+            ->concat($this->leaveConflicts($userId, $start, $end))
             ->values();
+    }
+
+    /**
+     * Everything the person is already committed to in the window, ignoring
+     * leave. Drives the conflict report shown while recording leave, which is
+     * about existing assignments rather than the leave being recorded.
+     */
+    public function assignmentConflicts(int $userId, CarbonInterface $start, CarbonInterface $end): Collection
+    {
+        return $this->conflicts($userId, $start, $end)
+            ->reject(fn (array $conflict) => $conflict['type'] === 'leave')
+            ->values();
+    }
+
+    /**
+     * The non-cancelled leave overlapping the window, if any.
+     *
+     * Leave-only, ignoring every other kind of clash: events and one-off gym
+     * sessions block on leave alone, since overlapping commitments elsewhere
+     * are legitimate there.
+     */
+    public function leaveFor(int $userId, CarbonInterface $start, CarbonInterface $end): ?StaffLeave
+    {
+        return StaffLeave::query()
+            ->where('user_id', $userId)
+            ->active()
+            ->overlapping($start, $end)
+            ->orderBy('first_day')
+            ->first();
+    }
+
+    /**
+     * Which of the given users are on leave for any part of the window.
+     *
+     * @param  array<int>  $userIds
+     * @return array<int, bool>  Keyed by user id; every id asked for is present.
+     */
+    public function onLeaveMap(array $userIds, CarbonInterface $start, CarbonInterface $end): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $onLeave = StaffLeave::query()
+            ->whereIn('user_id', $userIds)
+            ->active()
+            ->overlapping($start, $end)
+            ->pluck('user_id')
+            ->unique()
+            ->all();
+
+        $map = [];
+
+        foreach ($userIds as $userId) {
+            $map[(int) $userId] = in_array((int) $userId, array_map('intval', $onLeave), true);
+        }
+
+        return $map;
+    }
+
+    /**
+     * The overlapping leave for each of the given users, keyed by user id.
+     * Only users actually on leave appear, so the caller can both test
+     * membership and show the back date.
+     *
+     * @param  array<int>  $userIds
+     * @return array<int, StaffLeave>
+     */
+    public function leaveMap(array $userIds, CarbonInterface $start, CarbonInterface $end): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        return StaffLeave::query()
+            ->whereIn('user_id', $userIds)
+            ->active()
+            ->overlapping($start, $end)
+            ->orderBy('first_day')
+            ->get()
+            ->keyBy('user_id')
+            ->all();
     }
 
     /**
@@ -140,6 +228,27 @@ class StaffAvailability
                 'label' => $appointment->client?->name.' — '.($appointment->service?->name ?? 'appointment'),
                 'starts_at' => $appointment->starts_at,
                 'ends_at' => $appointment->ends_at,
+            ]);
+    }
+
+    /**
+     * Leave occupies whole days: [first_day 00:00, return_date 00:00). The
+     * same half-open rule as everything else, so "back Wednesday" leaves
+     * Wednesday 00:00 onwards free.
+     */
+    protected function leaveConflicts(int $userId, CarbonInterface $start, CarbonInterface $end): Collection
+    {
+        return StaffLeave::query()
+            ->where('user_id', $userId)
+            ->active()
+            ->overlapping($start, $end)
+            ->orderBy('first_day')
+            ->get()
+            ->map(fn (StaffLeave $leave) => [
+                'type' => 'leave',
+                'label' => $leave->publicLabel(),
+                'starts_at' => $leave->startsAt(),
+                'ends_at' => $leave->endsAt(),
             ]);
     }
 

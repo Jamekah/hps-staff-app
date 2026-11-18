@@ -5,6 +5,7 @@ namespace App\Livewire\Calendar;
 use App\Enums\EventType;
 use App\Models\Event;
 use App\Models\User;
+use App\Services\StaffAvailability;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
@@ -166,6 +167,34 @@ class EventsCalendar extends Component
             'staffIds.*' => [Rule::exists('users', 'id')->where('is_active', true)],
         ]);
 
+        // Staff on leave cannot be *newly* assigned. People already assigned
+        // when the leave was recorded stay put and are flagged instead, so an
+        // unrelated edit is never blocked by someone else's leave.
+        $start = Carbon::parse($validated['starts_at']);
+        $end = Carbon::parse($validated['ends_at']);
+
+        $selectedIds = array_map('intval', $validated['staffIds'] ?? []);
+
+        $alreadyAssigned = $this->editingId
+            ? Event::findOrFail($this->editingId)->staff()->pluck('users.id')->map(fn ($id) => (int) $id)->all()
+            : [];
+
+        $newlyAdded = array_values(array_diff($selectedIds, $alreadyAssigned));
+
+        if ($newlyAdded !== []) {
+            $onLeave = app(StaffAvailability::class)->leaveMap($newlyAdded, $start, $end);
+
+            if ($onLeave !== []) {
+                $names = User::whereIn('id', array_keys($onLeave))->orderBy('name')->pluck('name')->all();
+
+                $this->addError('staffIds', count($names) === 1
+                    ? $names[0].' is on leave during this event and cannot be assigned.'
+                    : implode(', ', $names).' are on leave during this event and cannot be assigned.');
+
+                return;
+            }
+        }
+
         $attributes = [
             'name' => $validated['name'],
             'type' => $validated['type'],
@@ -246,6 +275,35 @@ class EventsCalendar extends Component
             ? Event::with(['staff', 'creator'])->find($this->selectedEventId)
             : null;
 
+        $availability = app(StaffAvailability::class);
+        $activeStaff = User::where('is_active', true)->orderBy('name')->get(['id', 'name', 'position']);
+
+        // Who is away for any part of the window currently in the form. The
+        // picker greys these out and re-evaluates as the dates change.
+        $staffOnLeave = [];
+
+        if ($this->showForm && $this->starts_at && $this->ends_at) {
+            try {
+                $formStart = Carbon::parse($this->starts_at);
+                $formEnd = Carbon::parse($this->ends_at);
+
+                if ($formEnd->gt($formStart)) {
+                    $staffOnLeave = $availability->leaveMap($activeStaff->pluck('id')->all(), $formStart, $formEnd);
+                }
+            } catch (\Throwable) {
+                $staffOnLeave = [];
+            }
+        }
+
+        // "Away" badges on the detail sheet — no reason shown, ever.
+        $selectedEventLeave = $selectedEvent
+            ? $availability->leaveMap(
+                $selectedEvent->staff->pluck('id')->all(),
+                $selectedEvent->starts_at,
+                $selectedEvent->ends_at,
+            )
+            : [];
+
         // The mobile agenda: events on the tapped day, drawn from the same
         // per-cell collection the grid uses so the two can never disagree.
         $selected = $this->selectedDate ? Carbon::parse($this->selectedDate) : null;
@@ -260,7 +318,9 @@ class EventsCalendar extends Component
             'selectedEvent' => $selectedEvent,
             'selectedDayDate' => $selected,
             'selectedDayEvents' => $selectedDay['events'] ?? collect(),
-            'activeStaff' => User::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'activeStaff' => $activeStaff,
+            'staffOnLeave' => $staffOnLeave,
+            'selectedEventLeave' => $selectedEventLeave,
         ]);
     }
 }

@@ -5,7 +5,9 @@ namespace App\Livewire\Gym;
 use App\Enums\ClientType;
 use App\Enums\Recurrence;
 use App\Models\GymSchedule;
+use App\Models\StaffLeave;
 use App\Models\User;
+use App\Services\StaffAvailability;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
@@ -56,6 +58,13 @@ class GymSchedulePage extends Component
     public array $days_of_week = [];
 
     public array $staffIds = [];
+
+    /**
+     * Leave falling inside a saved recurring series, kept after the save so the
+     * admin can act on it:
+     * [['name' => 'Kila', 'count' => 3, 'total' => 24, 'dates' => ['9 Dec', ...]]].
+     */
+    public array $seriesLeaveSummary = [];
 
     public function mount(): void
     {
@@ -121,7 +130,7 @@ class GymSchedulePage extends Component
     {
         $this->authorize('create', GymSchedule::class);
 
-        $this->reset(['editingId', 'name', 'client_name', 'days_of_week', 'staffIds']);
+        $this->reset(['editingId', 'name', 'client_name', 'days_of_week', 'staffIds', 'seriesLeaveSummary']);
         $this->client_type = 'national_federation';
         $this->studio = '1';
         $this->recurrence = 'none';
@@ -150,6 +159,7 @@ class GymSchedulePage extends Component
         $this->recurrence = $schedule->recurrence->value;
         $this->days_of_week = array_map('strval', $schedule->days_of_week ?? []);
         $this->staffIds = $schedule->staff->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $this->seriesLeaveSummary = [];
         $this->resetValidation();
         $this->showForm = true;
     }
@@ -189,6 +199,40 @@ class GymSchedulePage extends Component
                 : null,
         ];
 
+        // Leave is the only thing that blocks a gym allocation. Overlapping
+        // sessions stay legal by design - the studios are large enough.
+        //
+        // A one-off session behaves like an event: newly allocated staff who
+        // are away are rejected. A recurring series never blocks; its affected
+        // occurrences are flagged instead, and the admin decides.
+        $selectedIds = array_map('intval', $validated['staffIds'] ?? []);
+
+        $alreadyAllocated = $this->editingId
+            ? GymSchedule::findOrFail($this->editingId)->staff()->pluck('users.id')->map(fn ($id) => (int) $id)->all()
+            : [];
+
+        $newlyAdded = array_values(array_diff($selectedIds, $alreadyAllocated));
+
+        if ($validated['recurrence'] === Recurrence::None->value && $newlyAdded !== []) {
+            $day = Carbon::parse($validated['start_date']);
+
+            $onLeave = app(StaffAvailability::class)->leaveMap(
+                $newlyAdded,
+                $day->copy()->setTimeFromTimeString($validated['start_time']),
+                $day->copy()->setTimeFromTimeString($validated['end_time']),
+            );
+
+            if ($onLeave !== []) {
+                $names = User::whereIn('id', array_keys($onLeave))->orderBy('name')->pluck('name')->all();
+
+                $this->addError('staffIds', count($names) === 1
+                    ? $names[0].' is on leave on that date and cannot be allocated.'
+                    : implode(', ', $names).' are on leave on that date and cannot be allocated.');
+
+                return;
+            }
+        }
+
         if ($this->editingId) {
             $schedule = GymSchedule::findOrFail($this->editingId);
             $this->authorize('update', $schedule);
@@ -202,7 +246,80 @@ class GymSchedulePage extends Component
 
         $schedule->staff()->sync($validated['staffIds'] ?? []);
 
+        // Recurring series: flag, never block.
+        $this->seriesLeaveSummary = $validated['recurrence'] === Recurrence::None->value
+            ? []
+            : $this->leaveFlagsFor($schedule->fresh(), $selectedIds);
+
         $this->showForm = false;
+    }
+
+    /**
+     * Which occurrences of a series fall inside each allocated person's leave.
+     *
+     * @param  array<int>  $staffIds
+     * @return array<int, array{name: string, count: int, total: int, dates: array<int, string>}>
+     */
+    protected function leaveFlagsFor(GymSchedule $schedule, array $staffIds): array
+    {
+        if ($staffIds === []) {
+            return [];
+        }
+
+        $occurrences = [];
+
+        for ($day = $schedule->start_date->copy(); $day->lte($schedule->end_date); $day->addDay()) {
+            if ($schedule->occursOn($day)) {
+                $occurrences[] = $day->copy();
+            }
+        }
+
+        if ($occurrences === []) {
+            return [];
+        }
+
+        $leaves = StaffLeave::query()
+            ->whereIn('user_id', $staffIds)
+            ->active()
+            ->overlapping($schedule->start_date->copy()->startOfDay(), $schedule->end_date->copy()->endOfDay())
+            ->get()
+            ->groupBy('user_id');
+
+        if ($leaves->isEmpty()) {
+            return [];
+        }
+
+        $names = User::whereIn('id', $leaves->keys()->all())->pluck('name', 'id');
+        $summary = [];
+
+        foreach ($leaves as $userId => $userLeaves) {
+            $hits = [];
+
+            foreach ($occurrences as $day) {
+                foreach ($userLeaves as $leave) {
+                    if ($leave->coversDate($day)) {
+                        $hits[] = $day->format('j M');
+                        break;
+                    }
+                }
+            }
+
+            if ($hits !== []) {
+                $summary[] = [
+                    'name' => $names[$userId] ?? 'Staff member',
+                    'count' => count($hits),
+                    'total' => count($occurrences),
+                    'dates' => $hits,
+                ];
+            }
+        }
+
+        return $summary;
+    }
+
+    public function dismissSeriesLeaveSummary(): void
+    {
+        $this->seriesLeaveSummary = [];
     }
 
     public function delete(int $scheduleId): void
@@ -308,18 +425,68 @@ class GymSchedulePage extends Component
             ->map(fn ($group, $start) => ['start' => $start, 'sessions' => $group->values()])
             ->values();
 
+        // Who is away: for the picker (one-off) and the live series preview.
+        $availability = app(StaffAvailability::class);
+        $activeStaff = User::where('is_active', true)->orderBy('name')->get(['id', 'name', 'position']);
+
+        $staffOnLeave = [];
+        $pendingLeaveFlags = [];
+
+        if ($this->showForm) {
+            try {
+                if ($this->recurrence === Recurrence::None->value && $this->start_date && $this->start_time && $this->end_time) {
+                    $formDay = Carbon::parse($this->start_date);
+
+                    $staffOnLeave = $availability->leaveMap(
+                        $activeStaff->pluck('id')->all(),
+                        $formDay->copy()->setTimeFromTimeString($this->start_time),
+                        $formDay->copy()->setTimeFromTimeString($this->end_time),
+                    );
+                } elseif ($this->start_date && $this->end_date && $this->staffIds !== []) {
+                    // Preview the flagged occurrences before the series is saved.
+                    $draft = new GymSchedule([
+                        'start_date' => $this->start_date,
+                        'end_date' => $this->end_date,
+                        'recurrence' => $this->recurrence,
+                        'days_of_week' => $this->recurrence === Recurrence::Weekly->value
+                            ? array_map('intval', $this->days_of_week)
+                            : null,
+                    ]);
+
+                    $pendingLeaveFlags = $this->leaveFlagsFor($draft, array_map('intval', $this->staffIds));
+                }
+            } catch (\Throwable) {
+                $staffOnLeave = [];
+                $pendingLeaveFlags = [];
+            }
+        }
+
+        // "Away" badges on the detail sheet - this occurrence's date, no reason.
+        $selectedSchedule = $this->selectedScheduleId
+            ? GymSchedule::with('staff')->find($this->selectedScheduleId)
+            : null;
+
+        $selectedScheduleLeave = $selectedSchedule
+            ? $availability->leaveMap(
+                $selectedSchedule->staff->pluck('id')->all(),
+                $day->copy()->startOfDay(),
+                $day->copy()->startOfDay()->addDay(),
+            )
+            : [];
+
         return view('livewire.gym.gym-schedule-page', [
             'day' => $day,
+            'staffOnLeave' => $staffOnLeave,
+            'pendingLeaveFlags' => $pendingLeaveFlags,
+            'selectedScheduleLeave' => $selectedScheduleLeave,
             'blocks' => $this->layoutBlocks($sessions),
             'hours' => range(7, 19),
             'mobileRows' => $mobileRows,
             'studio1Count' => $sessions->filter(fn (GymSchedule $s) => (string) $s->studio === '1')->count(),
             'studio2Count' => $sessions->filter(fn (GymSchedule $s) => (string) $s->studio === '2')->count(),
             'nowOffset' => $this->nowOffsetPercent($day),
-            'selectedSchedule' => $this->selectedScheduleId
-                ? GymSchedule::with('staff')->find($this->selectedScheduleId)
-                : null,
-            'activeStaff' => User::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'selectedSchedule' => $selectedSchedule,
+            'activeStaff' => $activeStaff,
             'weekdays' => [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 0 => 'Sun'],
         ]);
     }

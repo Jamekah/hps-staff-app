@@ -3,6 +3,30 @@
 
         <x-flash />
 
+        {{-- Recurring series saved with occurrences inside someone's leave.
+             Flagged, never blocked - the allocation is per series. --}}
+        @if ($seriesLeaveSummary !== [])
+            <div class="rounded-xl border border-leave bg-leave-tint p-3.5">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="space-y-1">
+                        @foreach ($seriesLeaveSummary as $flag)
+                            @php
+                                $flagDates = collect($flag['dates'])->take(8)->join(', ')
+                                    .(count($flag['dates']) > 8 ? ' and '.(count($flag['dates']) - 8).' more' : '');
+                            @endphp
+                            <p class="text-sm text-leave-dark">
+                                <span class="font-semibold">{{ $flag['name'] }}</span> is on leave for
+                                {{ $flag['count'] }} of {{ $flag['total'] }} sessions:
+                                {{ $flagDates }}.
+                            </p>
+                        @endforeach
+                    </div>
+                    <button type="button" wire:click="dismissSeriesLeaveSummary" aria-label="Dismiss"
+                        class="shrink-0 text-leave-dark transition hover:text-ink">&times;</button>
+                </div>
+            </div>
+        @endif
+
         {{-- Day navigation, legend, and the admin create action --}}
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
@@ -294,7 +318,15 @@
                 @else
                     <div class="flex flex-wrap gap-1.5">
                         @foreach ($selectedSchedule->staff as $member)
-                            <span class="hps-chip">{{ $member->name }}</span>
+                            <span @class([
+                                'hps-chip',
+                                'border-leave bg-leave-tint text-leave-dark' => isset($selectedScheduleLeave[$member->id]),
+                            ])>
+                                {{ $member->name }}
+                                @isset($selectedScheduleLeave[$member->id])
+                                    <span class="ms-1 text-[10px] font-semibold uppercase tracking-label">Away</span>
+                                @endisset
+                            </span>
                         @endforeach
                     </div>
                 @endif
@@ -408,13 +440,56 @@
                     <x-input-label value="Allocate staff" />
                     <div class="mt-1 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-ink-400 bg-surface p-2.5">
                         @foreach ($activeStaff as $member)
-                            <label class="flex cursor-pointer items-center gap-2 text-sm text-ink-800">
-                                <input type="checkbox" wire:model="staffIds" value="{{ $member->id }}"
-                                    class="border-ink-400 text-accent focus:ring-accent">
-                                {{ $member->name }}
+                            @php
+                                $leave = $staffOnLeave[$member->id] ?? null;
+                                $alreadyOn = in_array((string) $member->id, $staffIds, true);
+                            @endphp
+
+                            <label wire:key="gymstaff-{{ $member->id }}"
+                                @class([
+                                    'flex items-center gap-2 text-sm',
+                                    'cursor-pointer text-ink-800' => ! $leave || $alreadyOn,
+                                    'cursor-not-allowed text-ink-400' => $leave && ! $alreadyOn,
+                                ])>
+                                <input type="checkbox" wire:model.live="staffIds" value="{{ $member->id }}"
+                                    @disabled($leave && ! $alreadyOn)
+                                    class="border-ink-400 text-accent focus:ring-accent disabled:opacity-40">
+                                <span class="flex-1">{{ $member->name }}</span>
+
+                                @if ($leave)
+                                    <span @class([
+                                        'shrink-0 text-[10px] font-semibold uppercase tracking-label',
+                                        'text-leave-dark' => ! $alreadyOn,
+                                        'text-accent-700' => $alreadyOn,
+                                    ])>
+                                        On leave &middot; back {{ $leave->return_date->format('j M') }}
+                                    </span>
+                                @endif
                             </label>
                         @endforeach
                     </div>
+
+                    @if ($recurrence !== 'none')
+                        <p class="mt-1 text-xs text-ink-600">
+                            A recurring series is never blocked by leave. Affected occurrences are listed below so
+                            you can adjust them.
+                        </p>
+                    @endif
+
+                    {{-- Live preview of the occurrences that fall inside someone's leave. --}}
+                    @foreach ($pendingLeaveFlags as $flag)
+                        @php
+                            $flagDates = collect($flag['dates'])->take(8)->join(', ')
+                                .(count($flag['dates']) > 8 ? ' and '.(count($flag['dates']) - 8).' more' : '');
+                        @endphp
+                        <p wire:key="flag-{{ $loop->index }}"
+                            class="mt-1.5 rounded-lg border-s-4 border-leave bg-leave-tint px-3 py-2 text-xs text-leave-dark">
+                            <span class="font-semibold">{{ $flag['name'] }}</span> is on leave for
+                            {{ $flag['count'] }} of {{ $flag['total'] }} sessions:
+                            {{ $flagDates }}.
+                        </p>
+                    @endforeach
+
                     <x-input-error :messages="$errors->get('staffIds')" class="mt-1" />
                     <x-input-error :messages="collect($errors->get('staffIds.*'))->flatten()->all()" class="mt-1" />
                 </div>

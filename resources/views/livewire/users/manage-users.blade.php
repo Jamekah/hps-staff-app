@@ -31,9 +31,20 @@
                             <tr wire:key="user-{{ $user->id }}" class="border-b border-ink-200 transition hover:bg-ink-100">
                                 <td class="px-4 py-3">
                                     <div class="font-semibold text-ink">{{ $user->name }}</div>
-                                    <div class="truncate text-xs text-ink-600 sm:hidden">{{ $user->email }}</div>
+                                    @if ($user->position)
+                                        <div class="text-xs text-ink-600">{{ $user->position }}</div>
+                                    @endif
+                                    <div class="truncate text-xs text-ink-600 sm:hidden">{{ $user->email ?? 'No email' }}</div>
+                                    @if ($user->isRosterOnly())
+                                        <span class="mt-1 inline-block rounded-sm border border-leave-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-label text-leave-dark sm:hidden">No login</span>
+                                    @endif
                                 </td>
-                                <td class="hidden px-4 py-3 text-ink-700 sm:table-cell">{{ $user->email }}</td>
+                                <td class="hidden px-4 py-3 text-ink-700 sm:table-cell">
+                                    {{ $user->email ?? '—' }}
+                                    @if ($user->isRosterOnly())
+                                        <span class="mt-1 block w-fit rounded-sm border border-leave-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-label text-leave-dark">No login</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3">
                                     <span @class([
                                         'inline-flex rounded-sm px-2 py-1 text-[10px] font-semibold uppercase tracking-label',
@@ -77,8 +88,15 @@
                                     <div class="flex flex-wrap justify-end gap-x-3 gap-y-1">
                                         <button wire:click="openEdit({{ $user->id }})"
                                             class="inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-accent-700 transition hover:text-accent sm:py-0">Edit</button>
-                                        <button wire:click="sendResetLink({{ $user->id }})"
-                                            class="inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-ink-700 transition hover:text-ink sm:py-0">Reset link</button>
+
+                                        @if ($user->isRosterOnly())
+                                            <button wire:click="sendInvite({{ $user->id }})"
+                                                wire:confirm="Give {{ $user->name }} a login and email them a set-password link?"
+                                                class="inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-leave-dark transition hover:text-leave sm:py-0">Send invite</button>
+                                        @else
+                                            <button wire:click="sendResetLink({{ $user->id }})"
+                                                class="inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-ink-700 transition hover:text-ink sm:py-0">Reset link</button>
+                                        @endif
                                         @if ($user->id !== auth()->id())
                                             <button wire:click="toggleActive({{ $user->id }})"
                                                 class="inline-flex items-center py-3 text-[11px] font-semibold uppercase tracking-label text-ink-700 transition hover:text-ink sm:py-0">
@@ -121,10 +139,24 @@
                 </div>
 
                 <div>
-                    <x-input-label for="email" value="Email" />
+                    <x-input-label for="email" :value="$editingRosterOnly ? 'Email (optional — needed to send an invite)' : 'Email'" />
                     <x-text-input wire:model="email" id="email" type="email" class="mt-1" />
                     <x-input-error :messages="$errors->get('email')" class="mt-1" />
                 </div>
+
+                <div>
+                    <x-input-label for="position" value="Position (optional)" />
+                    <x-text-input wire:model="position" id="position" type="text" class="mt-1"
+                        placeholder="Physiotherapist, S&C Coach…" />
+                    <x-input-error :messages="$errors->get('position')" class="mt-1" />
+                </div>
+
+                @if ($editingRosterOnly)
+                    <p class="rounded-lg border-s-4 border-leave bg-leave-tint px-3 py-2 text-xs text-leave-dark">
+                        Roster entry: no login, and no notifications. Use "Send invite" to turn it into a login
+                        account — the record and everything assigned to it are kept.
+                    </p>
+                @endif
 
                 <div>
                     <x-input-label for="role" value="Role" />

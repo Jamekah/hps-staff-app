@@ -20,8 +20,13 @@ new #[Layout('layouts.guest')] class extends Component
         // We will send the password reset link to this user. Once we have attempted
         // to send the link, we will examine the response then see the message we
         // need to show to the user. Finally, we'll send out a proper response.
+        //
+        // `login_enabled` is part of the credentials deliberately: a roster-only
+        // staff member must never be issued a reset token, and the broker's
+        // "we can't find that user" response is identical to an unknown email,
+        // so the form gives nothing away.
         $status = Password::sendResetLink(
-            $this->only('email')
+            [...$this->only('email'), 'login_enabled' => true]
         );
 
         if ($status != Password::RESET_LINK_SENT) {

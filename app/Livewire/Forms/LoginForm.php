@@ -30,7 +30,11 @@ class LoginForm extends Form
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only(['email', 'password']), $this->remember)) {
+        // Roster-only staff are tracked in `users` but have no way in. The
+        // credential set includes login_enabled so a wrong password and a
+        // roster entry fail identically — the message must never reveal that
+        // the account exists.
+        if (! Auth::attempt([...$this->only(['email', 'password']), 'login_enabled' => true], $this->remember)) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

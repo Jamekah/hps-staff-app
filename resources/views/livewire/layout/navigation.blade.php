@@ -61,6 +61,12 @@ new class extends Component
                         </x-nav-link>
                     @endcan
 
+                    @can('manage-availability')
+                        <x-nav-link :href="route('availability')" :active="request()->routeIs('availability')" wire:navigate>
+                            {{ __('Availability') }}
+                        </x-nav-link>
+                    @endcan
+
                     @can('manage-users')
                         <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')" wire:navigate>
                             {{ __('Users') }}
@@ -140,6 +146,12 @@ new class extends Component
             @can('view-own-appointments')
                 <x-responsive-nav-link :href="route('clinic.mine')" :active="request()->routeIs('clinic.mine')" wire:navigate>
                     {{ __('My Appointments') }}
+                </x-responsive-nav-link>
+            @endcan
+
+            @can('manage-availability')
+                <x-responsive-nav-link :href="route('availability')" :active="request()->routeIs('availability')" wire:navigate>
+                    {{ __('Availability') }}
                 </x-responsive-nav-link>
             @endcan
 
