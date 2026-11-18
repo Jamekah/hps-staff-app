@@ -1111,6 +1111,20 @@ rejected by the reset page; and no token for a roster entry. Existing
 expectations of `ResetPassword` on create and invite were switched to
 `AccountSetupInvitation`.
 
-Not yet done: nothing deployed. The new migration ships with the next deploy
-(Laravel Cloud runs `migrate`), and until it runs, creating a user on
-production will fail on the missing table — deploy before adding staff.
+### Deployed (2026-11-18)
+
+Merged to main (PR #7, merge commit `5e2e747`). Deployment **#38** succeeded in
+**1m25s** via push-to-deploy, after CI ran the suite green on PHP 8.4 and 8.5.
+
+Post-deploy checks against production:
+- `migrations` = 17, the newest being
+  `2026_11_18_300001_create_password_invite_tokens_table`.
+- `password_invite_tokens` exists.
+- `config('auth.passwords.invites.expire')` = **1440** on the server.
+- `route('password.setup', ...)` resolves to
+  `/set-password/{token}?email=...` on the production domain.
+- 16 users, untouched.
+
+Not verified: no real setup email has been sent from production yet. The next
+user added — or a Send invite — is the first live test of the new copy. Mail
+still goes out over Gmail SMTP, unchanged by this work.
