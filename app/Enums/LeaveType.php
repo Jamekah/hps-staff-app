@@ -39,6 +39,34 @@ enum LeaveType: string
         };
     }
 
+    /**
+     * Working days allowed per calendar year, or null when the type has no
+     * limit (training, duty travel, other — counted and shown, never warned
+     * about).
+     *
+     * Read from config/leave.php rather than hard-coded, so HR can change the
+     * numbers without a code change and every count in the app agrees.
+     */
+    public function allowance(): ?int
+    {
+        $allowances = config('leave.allowances', []);
+
+        return array_key_exists($this->value, $allowances)
+            ? (int) $allowances[$this->value]
+            : null;
+    }
+
+    public function isLimited(): bool
+    {
+        return $this->allowance() !== null;
+    }
+
+    /** The types that carry an allowance, in display order. */
+    public static function limited(): array
+    {
+        return array_values(array_filter(self::cases(), fn (self $type) => $type->isLimited()));
+    }
+
     public static function values(): array
     {
         return array_column(self::cases(), 'value');

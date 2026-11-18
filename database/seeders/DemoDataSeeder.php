@@ -12,6 +12,7 @@ use App\Models\Event;
 use App\Models\GymSchedule;
 use App\Models\StaffLeave;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -218,40 +219,92 @@ class DemoDataSeeder extends Seeder
             );
         }
 
-        // ---- Phase 6: leave, past / current / upcoming -----------------------
-        // Deliberately overlapping: $clinician is assigned to events, gym
-        // series and clinic appointments above, so every warning state on the
-        // Availability page has something real behind it.
+        // ---- Phase 6 / 6.1: leave -------------------------------------------
+        // Covers every state the Overview and the Leave stats panel can show:
+        // away today, returning, upcoming, a New Year span, a taken/booked
+        // mix, someone at 80% of annual, someone over sick, and people with
+        // their whole allowance still intact.
         StaffLeave::query()->delete();
 
-        $leaves = [
-            // [user, type, first day offset, return offset, note]
-            [$clinician, LeaveType::Annual, 1, 8, 'Family trip to Lae.'],
-            [$staff->get(1), LeaveType::Sick, -6, -3, null],
-            [$staff->get(2), LeaveType::Training, 12, 17, 'World Rugby S&C course.'],
-            [$roster->get(0), LeaveType::DutyTravel, 0, 4, 'Escorting the swim squad.'],
-            [$roster->get(1), LeaveType::Annual, -30, -20, null],
-            [$roster->get(2), LeaveType::Other, 21, 23, 'Bereavement.'],
-            [$roster->get(4), LeaveType::Annual, 5, 19, 'Two weeks off.'],
-            [$roster->get(6), LeaveType::Sick, 0, 2, null],
-        ];
+        // Exact working-day spans, so the stats are predictable rather than
+        // whatever the calendar happens to give.
+        $spanOf = function (Carbon $start, int $workingDays): array {
+            $day = $start->copy()->startOfDay();
 
-        foreach ($leaves as [$person, $type, $firstOffset, $returnOffset, $note]) {
+            while (! $day->isWeekday()) {
+                $day->addDay();
+            }
+
+            $first = $day->copy();
+            $counted = 0;
+
+            while ($counted < $workingDays) {
+                if ($day->isWeekday()) {
+                    $counted++;
+                }
+
+                $day->addDay();
+            }
+
+            return [$first->toDateString(), $day->toDateString()];
+        };
+
+        $year = now()->year;
+
+        $record = function ($person, LeaveType $type, array $span, ?string $note = null) use ($admin) {
             if (! $person) {
-                continue;
+                return;
             }
 
             StaffLeave::create([
                 'user_id' => $person->id,
                 'type' => $type,
-                'first_day' => today()->addDays($firstOffset)->toDateString(),
-                'return_date' => today()->addDays($returnOffset)->toDateString(),
+                'first_day' => $span[0],
+                'return_date' => $span[1],
                 'note' => $note,
                 'recorded_by' => $admin->id,
             ]);
-        }
+        };
 
-        // One cancelled record, to show that history is kept and never blocks.
+        $clinician = $staff->first();
+
+        // --- Overview states, anchored to today ---
+        $record($clinician, LeaveType::Annual, [today()->addDay()->toDateString(), today()->addDays(8)->toDateString()], 'Family trip to Lae.');
+        $record($staff->get(1), LeaveType::Sick, [today()->subDays(6)->toDateString(), today()->subDays(3)->toDateString()]);
+        $record($staff->get(2), LeaveType::Training, [today()->addDays(12)->toDateString(), today()->addDays(17)->toDateString()], 'World Rugby S&C course.');
+        $record($roster->get(0), LeaveType::DutyTravel, [today()->toDateString(), today()->addDays(4)->toDateString()], 'Escorting the swim squad.');
+        $record($roster->get(2), LeaveType::Other, [today()->addDays(21)->toDateString(), today()->addDays(23)->toDateString()], 'Bereavement.');
+
+        // --- Allowance states, on fixed dates earlier in the year ---
+
+        // At 80% of annual: 12 of 15 working days used.
+        $record($roster->get(4), LeaveType::Annual, $spanOf(Carbon::create($year, 3, 2), 12), 'Long service trip.');
+
+        // Over the sick allowance: 7 + 6 = 13 of 10 working days.
+        $record($roster->get(6), LeaveType::Sick, $spanOf(Carbon::create($year, 2, 9), 7), 'Extended illness.');
+        $record($roster->get(6), LeaveType::Sick, $spanOf(Carbon::create($year, 5, 11), 6));
+
+        // A taken / booked mix for the same person and type.
+        $record($roster->get(1), LeaveType::Annual, $spanOf(Carbon::create($year, 4, 6), 5), 'Taken earlier in the year.');
+        $record($roster->get(1), LeaveType::Annual, [today()->addDays(40)->toDateString(), today()->addDays(47)->toDateString()], 'Booked ahead.');
+
+        // Comfortably within both limits.
+        $record($roster->get(3), LeaveType::Annual, $spanOf(Carbon::create($year, 6, 1), 4));
+        $record($roster->get(3), LeaveType::Sick, $spanOf(Carbon::create($year, 8, 17), 2));
+
+        // Unlimited types, so the plain-number columns have something in them.
+        $record($roster->get(5), LeaveType::Training, $spanOf(Carbon::create($year, 7, 6), 5), 'Coaching accreditation.');
+        $record($roster->get(8), LeaveType::DutyTravel, $spanOf(Carbon::create($year, 9, 14), 3), 'Regional games.');
+
+        // Spans New Year: each year counts only its own days.
+        $record($roster->get(7), LeaveType::Annual, [
+            Carbon::create($year, 12, 22)->toDateString(),
+            Carbon::create($year + 1, 1, 6)->toDateString(),
+        ], 'Christmas and New Year.');
+
+        // Baro Kemo (roster 9) deliberately has none — a full allowance left.
+
+        // One cancelled record, to show that history is kept and never counts.
         StaffLeave::create([
             'user_id' => $roster->get(3)->id,
             'type' => LeaveType::Annual,
@@ -263,7 +316,7 @@ class DemoDataSeeder extends Seeder
             'cancelled_by' => $admin->id,
         ]);
 
-        $this->command?->info('Demo content seeded. Log in with your super admin account.');
+                $this->command?->info('Demo content seeded. Log in with your super admin account.');
         $this->command?->info($roster->count().' roster-only staff and '.StaffLeave::count().' leave records added.');
     }
 }
