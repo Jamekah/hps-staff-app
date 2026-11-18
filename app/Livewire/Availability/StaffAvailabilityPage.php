@@ -9,6 +9,7 @@ use App\Models\Event;
 use App\Models\GymSchedule;
 use App\Models\StaffLeave;
 use App\Models\User;
+use App\Services\LeaveAllowance;
 use App\Services\StaffAvailability;
 use App\Services\WorkingDays;
 use Carbon\Carbon;
@@ -58,6 +59,19 @@ class StaffAvailabilityPage extends Component
 
     public string $staffPositionFilter = '';
 
+    // ---- Leave stats (Overview tab) ----
+    /** The allowance year the stats panel and the detail sheet both follow. */
+    public int $statsYear = 0;
+
+    /** 'name' | 'annual' | 'sick' | 'total'. */
+    public string $statsSort = 'name';
+
+    public bool $statsIncludeDeactivated = false;
+
+    public string $statsSearch = '';
+
+    public string $statsPositionFilter = '';
+
     // ---- Record leave sheet ----
     public bool $showLeaveForm = false;
 
@@ -74,6 +88,14 @@ class StaffAvailabilityPage extends Component
     public string $returnDate = '';
 
     public string $leaveNote = '';
+
+    /**
+     * Explicit acknowledgement that this leave takes someone over their
+     * allowance. Going over is allowed — it warns, it never blocks — but the
+     * admin has to say so, and the server re-checks rather than trusting the
+     * form.
+     */
+    public bool $leaveOverageAck = false;
 
     // ---- Staff detail sheet ----
     public ?int $detailUserId = null;
@@ -112,6 +134,37 @@ class StaffAvailabilityPage extends Component
         $this->monthCursor = now()->startOfMonth()->toDateString();
         $this->weekCursor = now()->startOfWeek(Carbon::MONDAY)->toDateString();
         $this->selectedDay = now()->toDateString();
+        $this->statsYear = now()->year;
+    }
+
+    // ================= Leave stats =================
+
+    public function previousStatsYear(): void
+    {
+        if ($this->statsYear > $this->earliestStatsYear()) {
+            $this->statsYear--;
+        }
+    }
+
+    public function nextStatsYear(): void
+    {
+        $this->statsYear++;
+    }
+
+    public function goToThisYear(): void
+    {
+        $this->statsYear = now()->year;
+    }
+
+    public function setStatsSort(string $sort): void
+    {
+        $this->statsSort = in_array($sort, ['name', 'annual', 'sick', 'total'], true) ? $sort : 'name';
+    }
+
+    /** The selector stops at the earliest year that actually has leave. */
+    protected function earliestStatsYear(): int
+    {
+        return min(app(LeaveAllowance::class)->earliestYearWithLeave(), now()->year);
     }
 
     // ================= Navigation =================
@@ -159,7 +212,7 @@ class StaffAvailabilityPage extends Component
     {
         $this->authorize('create', StaffLeave::class);
 
-        $this->reset(['editingLeaveId', 'leaveStaffSearch', 'leaveNote']);
+        $this->reset(['editingLeaveId', 'leaveStaffSearch', 'leaveNote', 'leaveOverageAck']);
         $this->leaveUserId = $userId;
         $this->leaveType = LeaveType::Annual->value;
         $this->firstDay = now()->toDateString();
@@ -181,6 +234,7 @@ class StaffAvailabilityPage extends Component
         $this->returnDate = $leave->return_date->toDateString();
         $this->leaveNote = $leave->note ?? '';
         $this->leaveStaffSearch = '';
+        $this->leaveOverageAck = false;
         $this->detailUserId = null;
         $this->resetValidation();
         $this->showLeaveForm = true;
@@ -190,6 +244,18 @@ class StaffAvailabilityPage extends Component
     {
         $this->leaveUserId = $userId;
         $this->leaveStaffSearch = '';
+        $this->leaveOverageAck = false;
+    }
+
+    /**
+     * Any change to who, what or when invalidates an acknowledgement given for
+     * the previous figures, so it is never carried over silently.
+     */
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['leaveUserId', 'leaveType', 'firstDay', 'returnDate'], true)) {
+            $this->leaveOverageAck = false;
+        }
     }
 
     /** Quick chips: +1 day, +1 week, +2 weeks from the first day away. */
@@ -254,6 +320,36 @@ class StaffAvailabilityPage extends Component
             return;
         }
 
+        // Allowances warn rather than block, but the warning must be
+        // acknowledged — and re-checked here, so a stale form that was filled
+        // in before the figures moved cannot skip it.
+        $overage = app(LeaveAllowance::class)->projectedOverage(
+            (int) $validated['leaveUserId'],
+            LeaveType::from($validated['leaveType']),
+            $validated['firstDay'],
+            $validated['returnDate'],
+            $this->editingLeaveId,
+        );
+
+        if ($overage !== [] && ! $this->leaveOverageAck) {
+            $person = User::find($validated['leaveUserId'])?->name ?? 'This person';
+            $type = LeaveType::from($validated['leaveType']);
+
+            foreach ($overage as $year => $figures) {
+                $this->addError('leaveOverageAck', sprintf(
+                    'This takes %s to %d of %d %s days in %d (%d over). Tick "Record anyway" to confirm.',
+                    $person,
+                    $figures['total'],
+                    $figures['limit'],
+                    mb_strtolower($type->shortLabel()),
+                    $year,
+                    $figures['over'],
+                ));
+            }
+
+            return;
+        }
+
         if ($this->editingLeaveId) {
             $leave = StaffLeave::findOrFail($this->editingLeaveId);
             $this->authorize('update', $leave);
@@ -282,6 +378,7 @@ class StaffAvailabilityPage extends Component
 
         $this->showLeaveForm = false;
         $this->editingLeaveId = null;
+        $this->leaveOverageAck = false;
     }
 
     public function cancelLeave(int $leaveId): void
@@ -830,41 +927,80 @@ class StaffAvailabilityPage extends Component
     }
 
     /**
-     * Working days of leave taken this calendar year, per user id. Leave that
-     * straddles new year is clipped, so it counts once in each year.
+     * Working days of leave per user id for the selected year.
+     *
+     * Delegates to LeaveAllowance so the Staff tab's column, the detail sheet
+     * and the stats panel can never disagree — the year-clipping that used to
+     * live here now lives there, once.
      *
      * @param  Collection<int, User>  $users
      * @return array<int, int>
      */
     protected function workingDaysThisYear(Collection $users): array
     {
-        $yearStart = now()->startOfYear()->startOfDay();
-        $nextYearStart = now()->startOfYear()->addYear();
+        $summary = app(LeaveAllowance::class)->summaryForYear($this->statsYear, $users);
 
-        $leaves = StaffLeave::query()
-            ->whereIn('user_id', $users->pluck('id')->all() ?: [0])
-            ->active()
-            ->overlapping($yearStart, $nextYearStart)
+        return collect($summary['perUser'])->map(fn (array $row) => $row['total'])->all();
+    }
+
+    /**
+     * The stats panel: one query for the staff, one for their leave, whatever
+     * the headcount.
+     */
+    protected function statsData(): array
+    {
+        $users = User::query()
+            ->when(! $this->statsIncludeDeactivated, fn ($q) => $q->where('is_active', true))
+            ->when($this->statsSearch, fn ($q) => $q->where(fn ($inner) => $inner
+                ->where('name', 'like', '%'.$this->statsSearch.'%')
+                ->orWhere('position', 'like', '%'.$this->statsSearch.'%')))
+            ->when($this->statsPositionFilter, fn ($q) => $q->where('position', $this->statsPositionFilter))
+            ->orderBy('name')
             ->get();
 
-        $totals = [];
+        $summary = app(LeaveAllowance::class)->summaryForYear($this->statsYear, $users);
 
-        foreach ($leaves as $leave) {
-            $from = $leave->first_day->copy()->startOfDay();
-            $to = $leave->return_date->copy()->startOfDay();
+        $rows = $users->map(fn (User $member) => [
+            'user' => $member,
+            'stats' => $summary['perUser'][$member->id],
+        ])->values();
 
-            if ($from->lt($yearStart)) {
-                $from = $yearStart->copy();
-            }
+        $rows = match ($this->statsSort) {
+            'annual' => $rows->sortByDesc(fn (array $row) => $row['stats']['byType']['annual']['used']),
+            'sick' => $rows->sortByDesc(fn (array $row) => $row['stats']['byType']['sick']['used']),
+            'total' => $rows->sortByDesc(fn (array $row) => $row['stats']['total']),
+            default => $rows,
+        };
 
-            if ($to->gt($nextYearStart)) {
-                $to = $nextYearStart->copy();
-            }
+        return [
+            'rows' => $rows->values(),
+            'teamByType' => $summary['teamByType'],
+            'teamTotal' => $summary['teamTotal'],
+            'staffOverLimit' => $summary['staffOverLimit'],
+        ];
+    }
 
-            $totals[$leave->user_id] = ($totals[$leave->user_id] ?? 0) + WorkingDays::between($from, $to);
+    /**
+     * The live allowance line in the leave form: what this leave does to the
+     * person's allowance, per year it touches.
+     */
+    protected function allowanceProjection(): array
+    {
+        if (! $this->leaveUserId || ! $this->firstDay || ! $this->returnDate) {
+            return [];
         }
 
-        return $totals;
+        try {
+            return app(LeaveAllowance::class)->projectionFor(
+                (int) $this->leaveUserId,
+                LeaveType::from($this->leaveType),
+                $this->firstDay,
+                $this->returnDate,
+                $this->editingLeaveId,
+            );
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     /** "8 working days (10 calendar) · back Wed 2 Dec", computed live. */
@@ -962,9 +1098,11 @@ class StaffAvailabilityPage extends Component
         $detailLeaves = collect();
         $detailTotals = [];
 
+        $detailAllowance = [];
+
         if ($detailUser) {
-            $yearStart = now()->startOfYear()->startOfDay();
-            $nextYearStart = now()->startOfYear()->addYear();
+            $yearStart = Carbon::create($this->statsYear, 1, 1)->startOfDay();
+            $nextYearStart = $yearStart->copy()->addYear();
 
             $detailLeaves = StaffLeave::query()
                 ->where('user_id', $detailUser->id)
@@ -974,20 +1112,18 @@ class StaffAvailabilityPage extends Component
                 ->orderByDesc('first_day')
                 ->get();
 
-            foreach ($detailLeaves as $leave) {
-                if ($leave->isCancelled()) {
-                    continue;
+            // Totals and allowances both come from LeaveAllowance for the
+            // selected year, so the sheet can never disagree with the stats
+            // panel or the Staff tab.
+            $detailSummary = app(LeaveAllowance::class)
+                ->summaryForYear($this->statsYear, collect([$detailUser]));
+
+            $detailAllowance = $detailSummary['perUser'][$detailUser->id]['byType'] ?? [];
+
+            foreach ($detailAllowance as $typeValue => $figures) {
+                if ($figures['used'] > 0) {
+                    $detailTotals[$typeValue] = $figures['used'];
                 }
-
-                $from = $leave->first_day->copy()->startOfDay()->max($yearStart);
-                $to = $leave->return_date->copy()->startOfDay()->min($nextYearStart);
-
-                if ($to->lte($from)) {
-                    continue;
-                }
-
-                $key = $leave->type->value;
-                $detailTotals[$key] = ($detailTotals[$key] ?? 0) + WorkingDays::between($from, $to);
             }
         }
 
@@ -1017,7 +1153,15 @@ class StaffAvailabilityPage extends Component
             'detailUser' => $detailUser,
             'detailLeaves' => $detailLeaves,
             'detailTotals' => $detailTotals,
+            'detailAllowance' => $detailAllowance,
             'summary' => $this->summaryPreview(),
+            'stats' => $this->tab === 'overview' ? $this->statsData() : null,
+            'allowanceProjection' => $this->showLeaveForm ? $this->allowanceProjection() : [],
+            'allowanceLimits' => collect(LeaveType::limited())
+                ->mapWithKeys(fn (LeaveType $type) => [$type->value => $type->allowance()])
+                ->all(),
+            'cautionThreshold' => (float) config('leave.caution_threshold', 0.8),
+            'earliestStatsYear' => $this->earliestStatsYear(),
         ]);
     }
 }

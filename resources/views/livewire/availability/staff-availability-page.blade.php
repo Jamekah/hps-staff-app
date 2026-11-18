@@ -157,6 +157,193 @@
                     @endif
                 </div>
             </div>
+
+            {{-- ================= Leave stats =================
+                 Allowances are working days per calendar year, read from
+                 config. Over the limit is allowed and shown in red with a
+                 "+N over" label, so colour is never the only signal. --}}
+            @if ($stats)
+                @php
+                    $annualLimit = $allowanceLimits['annual'] ?? null;
+                    $sickLimit = $allowanceLimits['sick'] ?? null;
+                @endphp
+
+                <div class="hps-panel mt-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-bold tracking-tight text-ink">Leave stats</h3>
+                            <div class="flex items-center gap-1">
+                                <button type="button" wire:click="previousStatsYear" aria-label="Previous year"
+                                    @disabled($statsYear <= $earliestStatsYear)
+                                    class="min-h-11 rounded-lg border border-ink-400 px-2.5 text-ink-800 transition hover:bg-ink-100 disabled:opacity-35 sm:min-h-0 sm:py-1.5">&larr;</button>
+                                <span class="min-w-[3.5rem] text-center text-sm font-bold text-ink">{{ $statsYear }}</span>
+                                <button type="button" wire:click="nextStatsYear" aria-label="Next year"
+                                    class="min-h-11 rounded-lg border border-ink-400 px-2.5 text-ink-800 transition hover:bg-ink-100 sm:min-h-0 sm:py-1.5">&rarr;</button>
+                                @if ($statsYear !== now()->year)
+                                    <button type="button" wire:click="goToThisYear"
+                                        class="min-h-11 rounded-lg border border-ink-400 px-2.5 text-[11px] font-semibold uppercase tracking-label text-ink-800 transition hover:bg-ink-100 sm:min-h-0 sm:py-1.5">This year</button>
+                                @endif
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-ink-600">
+                            Annual {{ $annualLimit }} &middot; Sick {{ $sickLimit }} working days per year. Includes booked leave.
+                        </p>
+                    </div>
+
+                    {{-- Team summary --}}
+                    <div class="flex flex-wrap items-center gap-1.5 border-b border-ink-200 p-3.5">
+                        @foreach ($leaveTypes as $type)
+                            @if (($stats['teamByType'][$type->value] ?? 0) > 0)
+                                <span class="hps-chip">{{ $type->shortLabel() }}: {{ $stats['teamByType'][$type->value] }}d</span>
+                            @endif
+                        @endforeach
+
+                        <span class="hps-chip border-ink bg-ink text-white">Total: {{ $stats['teamTotal'] }}d</span>
+
+                        @if ($stats['staffOverLimit'] > 0)
+                            <span class="rounded-lg border border-accent-700 bg-accent-100 px-2 py-1.5 text-xs font-semibold text-accent-800">
+                                {{ $stats['staffOverLimit'] }} staff over a limit
+                            </span>
+                        @endif
+
+                        @if ($stats['teamTotal'] === 0)
+                            <span class="text-sm text-ink-600">No leave recorded in {{ $statsYear }}.</span>
+                        @endif
+                    </div>
+
+                    {{-- Filters --}}
+                    <div class="flex flex-col gap-2 border-b border-ink-200 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <input type="text" wire:model.live.debounce.300ms="statsSearch" placeholder="Search name or position…"
+                                class="min-h-11 w-full rounded-lg border border-ink-400 bg-surface px-2.5 py-2 text-sm text-ink caret-leave placeholder:text-ink-500 focus:border-leave focus:ring-0 sm:min-h-0 sm:w-56">
+
+                            <select wire:model.live="statsPositionFilter"
+                                class="min-h-11 w-full rounded-lg border border-ink-400 bg-surface px-2.5 py-2 text-sm text-ink focus:border-leave focus:ring-0 sm:min-h-0 sm:w-44">
+                                <option value="">All positions</option>
+                                @foreach ($positions as $position)
+                                    <option value="{{ $position }}">{{ $position }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-3">
+                            <label class="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-semibold text-ink-700 sm:min-h-0">
+                                <input type="checkbox" wire:model.live="statsIncludeDeactivated" class="border-ink-400 text-leave focus:ring-leave">
+                                Show deactivated
+                            </label>
+
+                            <div class="hps-segment">
+                                @foreach (['name' => 'Name', 'annual' => 'Annual', 'sick' => 'Sick', 'total' => 'Total'] as $key => $label)
+                                    <button type="button" wire:click="setStatsSort('{{ $key }}')"
+                                        @class([
+                                            'border-e border-ink-400 px-2.5 py-2 text-[11px] font-semibold uppercase tracking-label transition last:border-e-0',
+                                            'bg-leave text-white' => $statsSort === $key,
+                                            'bg-white text-ink-700 hover:bg-ink-100' => $statsSort !== $key,
+                                        ])>{{ $label }}</button>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Desktop table --}}
+                    <div class="hidden overflow-x-auto sm:block">
+                        <table class="min-w-full text-sm">
+                            <thead>
+                                <tr class="border-b-2 border-ink">
+                                    <th class="hps-label px-4 py-3 text-start">Staff</th>
+                                    <th class="hps-label px-4 py-3 text-start">Annual</th>
+                                    <th class="hps-label px-4 py-3 text-start">Sick</th>
+                                    <th class="hps-label px-4 py-3 text-end">Training</th>
+                                    <th class="hps-label px-4 py-3 text-end">Duty travel</th>
+                                    <th class="hps-label px-4 py-3 text-end">Other</th>
+                                    <th class="hps-label px-4 py-3 text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($stats['rows'] as $row)
+                                    <tr wire:key="stat-{{ $row['user']->id }}" class="border-b border-ink-200 transition hover:bg-ink-100">
+                                        <td class="px-4 py-3">
+                                            <button type="button" wire:click="openStaffDetail({{ $row['user']->id }})"
+                                                class="text-start font-semibold text-ink transition hover:text-leave-dark">
+                                                {{ $row['user']->name }}
+                                            </button>
+                                            <span class="block text-xs text-ink-600">{{ $row['user']->position ?? '—' }}</span>
+                                            @unless ($row['user']->is_active)
+                                                <span class="mt-1 inline-block rounded-sm border border-ink-400 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-label text-ink-600">Deactivated</span>
+                                            @endunless
+                                        </td>
+
+                                        @foreach (['annual', 'sick'] as $limitedType)
+                                            @php $cell = $row['stats']['byType'][$limitedType]; @endphp
+                                            <td class="px-4 py-3 align-top">
+                                                <x-leave-allowance-cell :cell="$cell" :caution="$cautionThreshold" />
+                                            </td>
+                                        @endforeach
+
+                                        @foreach (['training', 'duty_travel', 'other'] as $plainType)
+                                            @php $days = $row['stats']['byType'][$plainType]['used']; @endphp
+                                            <td class="px-4 py-3 text-end {{ $days > 0 ? 'font-semibold text-ink' : 'text-ink-500' }}">
+                                                {{ $days > 0 ? $days.'d' : '—' }}
+                                            </td>
+                                        @endforeach
+
+                                        <td class="px-4 py-3 text-end font-bold text-ink">{{ $row['stats']['total'] }}d</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="px-4 py-10 text-center text-sm text-ink-600">No staff match those filters.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Phone cards --}}
+                    <div class="sm:hidden">
+                        @forelse ($stats['rows'] as $row)
+                            <div wire:key="statcard-{{ $row['user']->id }}" class="hps-row p-3.5 first:border-t-0">
+                                <button type="button" wire:click="openStaffDetail({{ $row['user']->id }})"
+                                    class="flex min-h-11 w-full items-center justify-between gap-3 text-start">
+                                    <span class="min-w-0">
+                                        <span class="block truncate text-[13px] font-semibold text-ink">{{ $row['user']->name }}</span>
+                                        <span class="block truncate text-xs text-ink-600">{{ $row['user']->position ?? '—' }}</span>
+                                    </span>
+                                    <span class="shrink-0 text-[13px] font-bold text-ink">{{ $row['stats']['total'] }}d</span>
+                                </button>
+
+                                <div class="mt-2 space-y-2">
+                                    @foreach (['annual' => 'Annual', 'sick' => 'Sick'] as $limitedType => $label)
+                                        @php $cell = $row['stats']['byType'][$limitedType]; @endphp
+                                        <div class="flex items-center gap-2">
+                                            <span class="hps-label w-12 shrink-0">{{ $label }}</span>
+                                            <span class="min-w-0 flex-1">
+                                                {{-- compact: the phone card keeps to name, bars, others and total --}}
+                                                <x-leave-allowance-cell :cell="$cell" :caution="$cautionThreshold" compact />
+                                            </span>
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                @php
+                                    $others = collect(['training' => 'Training', 'duty_travel' => 'Duty travel', 'other' => 'Other'])
+                                        ->map(fn ($label, $key) => $row['stats']['byType'][$key]['used'] > 0
+                                            ? $label.' '.$row['stats']['byType'][$key]['used'].'d'
+                                            : null)
+                                        ->filter()
+                                        ->join(' · ');
+                                @endphp
+
+                                @if ($others !== '')
+                                    <p class="mt-2 text-xs text-ink-600">{{ $others }}</p>
+                                @endif
+                            </div>
+                        @empty
+                            <p class="p-6 text-center text-sm text-ink-600">No staff match those filters.</p>
+                        @endforelse
+                    </div>
+                </div>
+            @endif
         @endif
 
         {{-- ================= Month ================= --}}
@@ -342,7 +529,7 @@
                                 <th class="hps-label px-4 py-3 text-start">Name</th>
                                 <th class="hps-label hidden px-4 py-3 text-start sm:table-cell">Account</th>
                                 <th class="hps-label hidden px-4 py-3 text-start sm:table-cell">Status</th>
-                                <th class="hps-label hidden px-4 py-3 text-end sm:table-cell">Leave this year</th>
+                                <th class="hps-label hidden px-4 py-3 text-end sm:table-cell">Leave {{ $statsYear }}</th>
                                 <th class="hps-label hidden px-4 py-3 text-start lg:table-cell">Next leave</th>
                                 <th class="hps-label px-4 py-3 text-end">Actions</th>
                             </tr>
@@ -358,7 +545,7 @@
                                         <div class="text-xs text-ink-600">{{ $member->position ?? '—' }}</div>
                                         <div class="text-xs text-ink-600 sm:hidden">
                                             {{ $staffYearDays[$member->id] ?? 0 }} working
-                                            {{ Str::plural('day', $staffYearDays[$member->id] ?? 0) }} of leave this year
+                                            {{ Str::plural('day', $staffYearDays[$member->id] ?? 0) }} of leave in {{ $statsYear }}
                                         </div>
                                         <div class="mt-1 flex flex-wrap gap-1 sm:hidden">
                                             @if ($member->isRosterOnly())
@@ -545,6 +732,56 @@
                     </p>
                 @endif
 
+                {{-- Live allowance: what this leave does to the person's year.
+                     Unlimited types (training, duty travel, other) show nothing. --}}
+                @if (count($allowanceProjection) > 0)
+                    @php
+                        $projectedType = \App\Enums\LeaveType::from($leaveType);
+                        $isOver = collect($allowanceProjection)->contains(fn ($figures) => $figures['over'] > 0);
+                        $who = $leaveStaffMember?->name ?? 'This person';
+                    @endphp
+
+                    <div @class([
+                        'rounded-lg border-s-4 px-3 py-2.5',
+                        'border-accent-700 bg-accent-100' => $isOver,
+                        'border-ink-400 bg-ink-100' => ! $isOver,
+                    ])>
+                        @foreach ($allowanceProjection as $year => $figures)
+                            @php
+                                $allowanceLine = $figures['over'] > 0
+                                    ? sprintf(
+                                        'This takes %s to %d of %d %s days in %d (%d over).',
+                                        $who, $figures['total'], $figures['limit'],
+                                        mb_strtolower($projectedType->shortLabel()), $year, $figures['over'],
+                                    )
+                                    : sprintf(
+                                        '%d of %d used in %d · this leave uses %d → %d left',
+                                        $figures['existing'], $figures['limit'], $year,
+                                        $figures['adding'], $figures['limit'] - $figures['total'],
+                                    );
+                            @endphp
+
+                            @if ($figures['over'] > 0)
+                                <p wire:key="allow-{{ $year }}" class="text-sm font-semibold text-accent-800">{{ $allowanceLine }}</p>
+                            @else
+                                <p wire:key="allow-{{ $year }}" class="text-sm text-ink-800">
+                                    <span class="font-semibold">{{ $projectedType->shortLabel() }}:</span> {{ $allowanceLine }}
+                                </p>
+                            @endif
+                        @endforeach
+
+                        @if ($isOver)
+                            <label class="mt-2 flex min-h-11 cursor-pointer items-start gap-2.5 text-sm text-accent-800 sm:min-h-0">
+                                <input type="checkbox" wire:model.live="leaveOverageAck"
+                                    class="mt-0.5 border-accent-700 text-accent-700 focus:ring-accent">
+                                <span class="font-semibold">Record anyway</span>
+                            </label>
+                        @endif
+                    </div>
+
+                    <x-input-error :messages="$errors->get('leaveOverageAck')" class="mt-1" />
+                @endif
+
                 {{-- Live conflict report: existing assignments inside the window --}}
                 @if (count($conflictReport) > 0)
                     <div class="rounded-lg border border-ink-400 bg-white">
@@ -604,9 +841,27 @@
                 </span>
             </div>
 
+            {{-- Allowances for the year the stats panel is showing, so the two
+                 views always agree. --}}
+            @if ($detailAllowance !== [])
+                <div class="flex gap-3 border-b border-ink-200 p-3.5">
+                    <span class="hps-label w-24 shrink-0 pt-0.5">{{ $statsYear }} allowance</span>
+                    <span class="flex flex-wrap gap-5">
+                        @foreach (['annual' => 'Annual', 'sick' => 'Sick'] as $limitedType => $label)
+                            @if (isset($detailAllowance[$limitedType]))
+                                <span wire:key="da-{{ $limitedType }}">
+                                    <span class="hps-label block">{{ $label }}</span>
+                                    <x-leave-allowance-cell :cell="$detailAllowance[$limitedType]" :caution="$cautionThreshold" />
+                                </span>
+                            @endif
+                        @endforeach
+                    </span>
+                </div>
+            @endif
+
             @if ($detailTotals !== [])
                 <div class="flex gap-3 border-b border-ink-200 p-3.5">
-                    <span class="hps-label w-24 shrink-0 pt-0.5">{{ now()->year }} totals</span>
+                    <span class="hps-label w-24 shrink-0 pt-0.5">{{ $statsYear }} totals</span>
                     <span class="flex flex-wrap gap-1.5">
                         @foreach ($detailTotals as $typeValue => $days)
                             <span class="hps-chip">
@@ -621,7 +876,7 @@
                 <span class="hps-label">Leave history</span>
                 <button type="button" wire:click="$toggle('detailAllYears')"
                     class="text-[11px] font-semibold uppercase tracking-label text-accent-700 hover:text-accent">
-                    {{ $detailAllYears ? 'This year only' : 'Show all years' }}
+                    {{ $detailAllYears ? $statsYear.' only' : 'Show all years' }}
                 </button>
             </div>
 
@@ -654,7 +909,7 @@
                     @endunless
                 </div>
             @empty
-                <p class="p-6 text-center text-sm text-ink-600">No leave recorded{{ $detailAllYears ? '' : ' this year' }}.</p>
+                <p class="p-6 text-center text-sm text-ink-600">No leave recorded{{ $detailAllYears ? '' : ' in '.$statsYear }}.</p>
             @endforelse
 
             <x-slot name="actions">

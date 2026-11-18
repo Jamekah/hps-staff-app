@@ -14,6 +14,7 @@ Spec: `../CLAUDE.md` (build specification). Repo: https://github.com/Jamekah/hps
 | 5. SM Clinic | Sports medicine bookings, clash engine, clinician views | ✅ Live in production |
 | Laravel 13 upgrade | Framework 12 → 13 (PHP 8.3+), no behaviour change | ✅ Merged to main and deployed |
 | 6. Staff Availability | Leave records, roster-only staff, leave in the conflict engine | ✅ Live in production |
+| 6.1 Leave stats & allowances | Annual/sick allowances, stats panel, clinic services on deploy | ⏳ On branch `phase-6.1-leave-stats`, awaiting review |
 
 **Everything below is verified working in production as of 2026-07-18.** Cloud
 infrastructure configured by Jason: MySQL, object-storage bucket, queue worker,
@@ -889,3 +890,121 @@ first real use will be an admin adding roster staff from the Staff tab.
 - Still out of scope and not designed around: staff requesting their own leave
   with approval, entitlements / balances, part-day leave, and exporting leave
   reports.
+
+---
+
+## Phase 6.1 — Leave stats & allowances ⏳ (2026-11-18) — on branch `phase-6.1-leave-stats`, not merged
+
+Two small additive parts, built to `../PHASE-6.1-BRIEF.md` on top of Phase 6.
+Awaiting Jason's local review.
+
+### Part A — clinic services after every deploy
+
+**The incident.** On 18 Nov 2026, shortly after Phase 6 went live, production's
+SM Clinic booking form showed an **empty service dropdown**. Nothing in Phase 6
+caused it: Laravel Cloud runs `migrate` on deploy but **never runs seeders**, and
+`ClinicServiceSeeder` had simply never been run against production since the
+clinic shipped. Jason fixed the live site by hand with
+`php artisan db:seed --class=ClinicServiceSeeder --force`.
+
+**The fix.** `2026_11_18_200001_ensure_clinic_services_exist` is a data migration
+that inserts the six services, so a rebuild, a new environment or a staging copy
+can never start without them.
+
+- **Insert-only, matched on `name`.** Existing rows are never updated, so
+  durations Jason tunes in production survive — and on production the migration
+  is a **no-op**, which was verified against the live data before it was written
+  (all six present, 30 minutes, Rehabilitation recurring).
+- Uses the **query builder**, not the Eloquent model, so a later change to
+  `ClinicService` cannot break a migration that has already run elsewhere.
+- `down()` deliberately does nothing: appointments reference these rows.
+- `ClinicServiceSeeder` stays for tests and local setup.
+
+**⚠️ Never run a plain `db:seed` in production.** `SuperAdminSeeder` uses
+`updateOrCreate`, so it would reset the super admin's password to whatever
+`SUPER_ADMIN_PASSWORD` currently holds. `DatabaseSeeder` now carries that
+warning in a comment, and nothing in the deploy pipeline runs seeders.
+
+### Part B — leave stats & allowances
+
+**The rules**, all locked in scoping and now enforced in one place:
+
+| | |
+|---|---|
+| Allowance year | Calendar year; leave spanning New Year counts its own days in each |
+| Annual | **15 working days** per year |
+| Sick | **10 working days** per year |
+| Training / Duty travel / Other | No limit — counted and shown only |
+| Counting | Working days (Mon–Fri) in `[first_day, return_date)`; **future booked leave counts as used**; cancelled never counts |
+| Carry-over | None |
+| Over the limit | **Warn, then allow** — never block |
+| Applies to | Every staff member, roster-only included; no pro-rata |
+
+**`App\Services\LeaveAllowance` is the single source of truth.** The year-clipping
+that used to sit in `StaffAvailabilityPage::workingDaysThisYear()` and again in
+the detail sheet now lives here, once, so the Staff tab column, the detail sheet
+and the stats panel cannot disagree — there is a test asserting exactly that.
+It offers `usedDays` / `takenDays` / `bookedDays`, `remaining` (null when
+unlimited, negative when over), `summaryForYear()` for the whole table in a
+**fixed number of queries**, and `projectionFor()` / `projectedOverage()` for the
+warning, with `ignoreLeaveId` so an edit never counts a leave against itself.
+
+**Limits live in `config/leave.php`**, with `LEAVE_ANNUAL_DAYS` /
+`LEAVE_SICK_DAYS` env overrides, read through a new `LeaveType::allowance()`.
+A type absent from the config has no limit, so adding or removing one is a
+config change rather than a code change.
+
+**The Leave stats panel** sits full width under the Overview's four panels:
+- a **year selector** that stops at the earliest year with any leave, plus a
+  "This year" shortcut;
+- a **team summary** strip of per-type totals and "N staff over a limit";
+- a **per-staff table**: Annual and Sick as "used / limit" with a slim bar,
+  "N left", and "N taken · N booked" underneath; the unlimited types as plain
+  days or a muted "—"; and a combined total;
+- caution styling at **≥80%** of a limit, and a deeper red with **"+N over"**
+  past it — the text differs in all three states, so colour is never the only
+  signal and the over-limit red can't be mistaken for a brand-red button;
+- search, position filter, a "Show deactivated" toggle (active-only by default,
+  so everyone with their full allowance intact is visible), and sorting by name,
+  annual, sick or total;
+- **phone cards** below 640px: name and total, two allowance bars, then one line
+  for the other types.
+
+**Warnings when recording leave.** Once staff, type and both dates are set, the
+sheet shows a live allowance line ("Annual: 9 of 15 used in 2026 · this leave
+uses 4 → 2 left"). If it would exceed the limit in any affected year it warns
+instead ("This takes Kila Vagi to 18 of 15 annual days in 2026 (3 over).") and
+requires a **"Record anyway"** tick. The check is **repeated server-side** and
+the acknowledgement is cleared whenever the staff member, type or either date
+changes, so a stale form cannot skip it. Unlimited types show nothing.
+
+**The staff detail sheet** gained the same used / limit / remaining display and
+now follows the stats panel's selected year, as does the Staff tab's column.
+
+### Verified
+- **366 tests passing (888 assertions)** — 52 new, no regressions.
+  Allowance service (27), stats panel and over-limit flow (25), plus Part A (7).
+- The N+1 guard is a real assertion: `summaryForYear()` runs the **same single
+  query** for 2 staff and for 25.
+- Time is **frozen** in the allowance tests (`2026-06-15`), since the
+  taken/booked split is defined against today.
+- The New Year split is checked both ways: 22 Dec 2026 → 6 Jan 2027 counts 8
+  days in 2026 and 3 in 2027, and the two always sum to the 11-day whole.
+- **Browser-checked** against the extended demo seeder: the panel shows Grace
+  Oala at 12/15 (caution, "3 left", 12 taken) and Ruth Kaupa at 13/10 (red,
+  "+3 over"), with Kia Loca showing 0 taken · 5 booked.
+- **380px**: no horizontal overflow, and every tap target ≥44px (the only
+  element below it is the raw checkbox input, whose clickable label is 44px).
+
+### Notes for later
+- The stats panel has its **own** search and position filter rather than sharing
+  the Staff tab's. The brief suggested reusing them, but those controls only
+  render on the Staff tab, so a shared binding would mean a filter set there
+  silently narrowing the Overview.
+- The stats panel is **active-only by default** while the Staff tab still lists
+  everyone; the toggle covers the difference deliberately.
+- `summaryForYear()` was kept shape-agnostic because CSV export is the likely
+  next step — it already returns everything such an export would need.
+- `clinic_services.name` has no unique index, so Part A is a select-then-insert
+  and races in theory. One deploy process makes that moot; adding a unique index
+  to a live table seemed the larger risk.
