@@ -617,6 +617,23 @@ permanently: `.env`, `my.ini` and the MySQL services were all left as found.
 - The Android APK was not rebuilt or re-tested (not required — remote-URL mode).
 - Nothing was deployed; Laravel Cloud still runs Laravel 12 on its own MySQL.
 
+### PHP floor corrected (2026-11-18)
+`composer.json` declared `"php": "^8.3"` after the upgrade, and that was wrong
+in practice. **Laravel 13 itself does require only PHP 8.3+** — `laravel/framework`
+v13.42.0 declares `php ^8.3` — but the resolved dependency set does not:
+`symfony/*` 8.1.x, which Laravel 13 pulls in, requires **`php >=8.4.1`**, and
+around eighteen of those components are in the lock.
+
+So `composer install` could never have succeeded on 8.3. Nothing noticed because
+every machine that has touched this repo runs 8.5, and Laravel Cloud builds on
+8.5 too. The **first run of the new CI workflow** caught it within a minute of
+being switched on.
+
+The constraint is now `^8.4.1` — the exact floor the lock imposes, rather than a
+rounded `^8.4` that would still fail on 8.4.0. Refreshed with
+`composer update --lock`, which changed **only** the lock's content hash and
+platform entry: no package version moved.
+
 ### Optional follow-ups (not required by Laravel 13)
 - `livewire/livewire` 3.8.11 → 4.x — a major migration touching every page.
 - `phpunit/phpunit` 12.5.44 → 13.x — Laravel 13's skeleton targets `^12.5`.
