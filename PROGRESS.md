@@ -776,12 +776,56 @@ behind it. One cancelled record, to show history is kept.
   management (17), import (15), leave recording (16), enforcement (20),
   notifications (11), page and access (20).
 - **Migrations run clean on real MySQL**, not just the SQLite test database:
-  checked on a throwaway `hps_staff_app_p6check` (created and dropped; the real
-  `hps_staff_app` was never written to). `email` ends up `varchar(255) NULL`
-  with `users_email_unique` **still present**, `position` `varchar(100) NULL`,
-  `login_enabled` `tinyint(1)` default 1, and `staff_leaves` with the compound
-  index and the right FK behaviours (user cascade, recorded_by/cancelled_by set
-  null).
+  first locally on MySQL 8.4 (throwaway `hps_staff_app_p6check`, created and
+  dropped; the real local `hps_staff_app` was never written to), then on
+  **production's own MySQL 8.0.39** (see below). `email` ends up
+  `varchar(255) NULL` with `users_email_unique` **still present**, `position`
+  `varchar(100) NULL`, `login_enabled` `tinyint(1)` default 1, and
+  `staff_leaves` with the compound index and the right FK behaviours (user
+  cascade, recorded_by/cancelled_by set null).
+
+### Verified against production's MySQL 8.0.39 (2026-11-18)
+
+Laravel Cloud's production database is MySQL **8.0.39**, not the 8.4 running
+locally, and the `email` ALTER was the one change worth proving on the real
+engine. Method, so it can be repeated:
+
+1. Created a throwaway schema `hps_p6_check` on the same cluster
+   (`db-a1472ed5…`, which also hosts `main` and `renttrack_png`).
+2. Cloned the **live** table structure with
+   `CREATE TABLE hps_p6_check.users LIKE hps_staff_app.users` — a real copy of
+   the production definition, indexes included.
+3. Inserted **50 synthetic rows** (`p6check{n}@example.test`). No production
+   user data was copied at any point; production was only ever read, and only
+   for a row count.
+4. Shipped both Phase 6 migration files into the app container and ran them
+   against that schema with Laravel 13 / PHP 8.5, exactly as a deploy would.
+
+Results on 8.0.39:
+- Both migrations applied cleanly (136ms and 363ms).
+- `email` → `varchar(255)`, nullable; `position` → `varchar(100)`, nullable;
+  `login_enabled` → `tinyint(1)`, NOT NULL.
+- **`users_email_unique` survived the ALTER**, alongside `primary`.
+- All 50 rows intact, none altered.
+- Three roster-only rows with `email = NULL` then inserted happily side by side
+  under the unique index — the behaviour the whole design depends on.
+- `staff_leaves` created with all 11 columns, the compound
+  (user_id, first_day, return_date) index, and FKs: user_id cascade,
+  recorded_by / cancelled_by set null.
+
+**⚠️ Rollback is one-way once roster staff exist.** `migrate:rollback` on the
+Phase 6 batch was tested on 8.0.39 with three roster-only rows present and
+**failed**: `SQLSTATE[22004] … 1138 Invalid use of NULL value` on
+`alter table users modify email varchar(255) not null`. Worse, Laravel rolls
+back in reverse order, so it had already **dropped `staff_leaves`** before
+reaching the failure, leaving `email` nullable, the columns in place, one
+migration still recorded as ran, and every leave record gone.
+
+The `down()` now checks for users without an email and throws an explicit
+message instead of letting MySQL raise SQLSTATE[22004] — but that only makes
+the failure legible, it cannot save the leave records dropped by the other
+migration first. **After this is live, recover with a database snapshot, not a
+rollback.** The cluster takes scheduled snapshots with 1-day retention.
 - **Browser-checked** against the seeded demo data: the Overview panels, the
   desktop month grid (bars, shaded weekends, position filter, show-everyone),
   the Staff roster with Login / No login badges and policy-correct actions (a
