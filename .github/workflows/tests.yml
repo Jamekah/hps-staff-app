@@ -24,9 +24,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 8.3 is the floor in composer.json; 8.5 is what production runs.
-        # Both, so neither the stated minimum nor the live version can rot.
-        php: ['8.3', '8.5']
+        # 8.4 is the real floor and 8.5 is what production runs.
+        #
+        # Note composer.json still declares "php": "^8.3", but the lock file
+        # cannot install there: Laravel 13 pulls Symfony 8.1.x, which requires
+        # php >= 8.4.1. The first CI run proved it. Testing 8.3 here would only
+        # ever fail at composer install, so the matrix tracks reality until the
+        # declared constraint is corrected.
+        php: ['8.4', '8.5']
 
     steps:
       - name: Check out the branch
