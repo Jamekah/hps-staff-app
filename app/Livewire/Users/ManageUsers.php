@@ -5,6 +5,7 @@ namespace App\Livewire\Users;
 use App\Enums\Role;
 use App\Models\User;
 use App\Notifications\AccountSetupInvitation;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -158,9 +159,46 @@ class ManageUsers extends Component
         }
 
         $user = User::findOrFail($userId);
-        $user->delete();
+
+        // Deletion is permanent and the database restricts it for anyone who
+        // has authored anything. Say so in words, rather than letting a
+        // foreign key violation surface as a 500.
+        if ($blockers = $user->deletionBlockers()) {
+            session()->flash('error', "{$user->name} cannot be deleted: they created ".
+                $this->readableList($blockers).
+                ' that would be lost. Deactivate them instead — that blocks their login and notifications, and keeps the record.');
+
+            return;
+        }
+
+        try {
+            $user->delete();
+        } catch (QueryException $e) {
+            // Backstop for a restricting foreign key added after the list in
+            // User::deletionBlockers() was written.
+            report($e);
+            session()->flash('error', "{$user->name} could not be deleted: other records still refer to them. Deactivate them instead.");
+
+            return;
+        }
 
         session()->flash('status', "{$user->name} deleted.");
+    }
+
+    /**
+     * ["3 events", "1 announcement"] becomes "3 events and 1 announcement".
+     *
+     * @param  array<int, string>  $items
+     */
+    protected function readableList(array $items): string
+    {
+        if (count($items) === 1) {
+            return $items[0];
+        }
+
+        $last = array_pop($items);
+
+        return implode(', ', $items).' and '.$last;
     }
 
     public function sendResetLink(int $userId): void
